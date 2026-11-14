@@ -48,7 +48,7 @@ class OrderService:
         if not customer:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
 
-        # Sort product IDs to prevent database deadlocks on concurrent orders touching the same products
+        # Sort product IDs to prevent deadlocks on concurrent orders touching the same products
         sorted_items = sorted(data.items, key=lambda x: x.product_id)
 
         try:
@@ -142,19 +142,30 @@ class OrderService:
             if current_user["role"] != "MANAGER" and order["created_by_id"] != current_user["id"]:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
-            # 1. Release previously reserved stock
-            for old_item in order["items"]:
-                prod = self.product_repo.find_by_id_for_update(old_item["product_id"])
-                restored_stock = prod["stock_quantity"] + old_item["quantity"]
-                self.product_repo.update_stock(prod["id"], restored_stock)
+            # Collect ALL product IDs touched (both old items being restored and new items being added)
+            # and sort them strictly to completely eliminate any deadlock risk across concurrent transactions
+            all_product_ids = sorted(list(set(
+                [item["product_id"] for item in order["items"]] +
+                [item.product_id for item in data.items]
+            )))
 
-            # 2. Validate new items with row locks
-            sorted_items = sorted(data.items, key=lambda x: x.product_id)
+            # Acquire exclusive row locks for all affected products in deterministic ascending order
+            locked_products = {}
+            for pid in all_product_ids:
+                locked_products[pid] = self.product_repo.find_by_id_for_update(pid)
+
+            # 1. Release previously reserved stock to the locked in-memory products
+            for old_item in order["items"]:
+                prod = locked_products[old_item["product_id"]]
+                prod["stock_quantity"] += old_item["quantity"]
+                self.product_repo.update_stock(prod["id"], prod["stock_quantity"])
+
+            # 2. Validate new items against updated locked products
             total_amount = Decimal("0.00")
             validated_items = []
 
-            for item in sorted_items:
-                product = self.product_repo.find_by_id_for_update(item.product_id)
+            for item in data.items:
+                product = locked_products.get(item.product_id)
                 if not product or not product["is_active"]:
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Product ID {item.product_id} is inactive or not found")
 
@@ -183,8 +194,8 @@ class OrderService:
             # 4. Reserve stock for new items
             for val_item in validated_items:
                 prod = val_item["product"]
-                new_stock = prod["stock_quantity"] - val_item["quantity"]
-                self.product_repo.update_stock(prod["id"], new_stock)
+                prod["stock_quantity"] -= val_item["quantity"]
+                self.product_repo.update_stock(prod["id"], prod["stock_quantity"])
 
             # 5. Check threshold
             status_val = "PENDING_APPROVAL" if total_amount > APPROVAL_THRESHOLD else "CONFIRMED"
@@ -210,9 +221,10 @@ class OrderService:
             if order["status"] in ("CANCELLED", "REJECTED"):
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Order is already {order['status']}")
 
-            # Release reserved stock back to products table with row locks
+            # Release reserved stock in deterministic sorted order
             if order["status"] in ("PENDING_APPROVAL", "CONFIRMED", "APPROVED"):
-                for item in order["items"]:
+                sorted_items = sorted(order["items"], key=lambda x: x["product_id"])
+                for item in sorted_items:
                     prod = self.product_repo.find_by_id_for_update(item["product_id"])
                     new_stock = prod["stock_quantity"] + item["quantity"]
                     self.product_repo.update_stock(prod["id"], new_stock)
@@ -227,7 +239,7 @@ class OrderService:
 
     def approve_order(self, order_id: int, action: OrderApprovalAction, manager_user: dict, email_queue: BackgroundTasks = None):
         try:
-            # Lock order row exclusively to prevent concurrent approval/rejection race
+            # Lock order row exclusively
             order = self.repo.get_by_id_for_update(order_id)
             if not order:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
@@ -238,7 +250,7 @@ class OrderService:
                     detail=f"Order is in '{order['status']}' state; only PENDING_APPROVAL orders can be approved."
                 )
 
-            # Stock was already safely reserved, finalize to APPROVED
+            # Stock was already reserved under lock during creation/update, finalize to APPROVED
             self.repo.update_status(order_id, "APPROVED", reviewed_by_id=manager_user["id"], notes=action.approval_notes)
             self.conn.commit()
 
@@ -271,8 +283,9 @@ class OrderService:
                     detail=f"Order is in '{order['status']}' state; only PENDING_APPROVAL orders can be rejected."
                 )
 
-            # Release reserved stock back to products table with row locks
-            for item in order["items"]:
+            # Release reserved stock back to products in deterministic sorted order
+            sorted_items = sorted(order["items"], key=lambda x: x["product_id"])
+            for item in sorted_items:
                 prod = self.product_repo.find_by_id_for_update(item["product_id"])
                 new_stock = prod["stock_quantity"] + item["quantity"]
                 self.product_repo.update_stock(prod["id"], new_stock)

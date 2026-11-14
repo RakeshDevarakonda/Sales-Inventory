@@ -23,28 +23,31 @@ class InventoryService:
         return self.repo.get_low_stock(threshold)
 
     def adjust_stock(self, data: StockAdjustmentCreate):
-        product = self.product_repo.find_by_id(data.product_id)
-        if not product:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
-
-        current_stock = product["stock_quantity"]
-        new_stock = current_stock + data.change_quantity
-
-        if new_stock < 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot reduce stock below 0. Current stock is {current_stock}."
-            )
-
         try:
+            # 1. Acquire exclusive row lock with FOR UPDATE to prevent race conditions during concurrent adjustments
+            product = self.product_repo.find_by_id_for_update(data.product_id)
+            if not product:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+
+            current_stock = product["stock_quantity"]
+            new_stock = current_stock + data.change_quantity
+
+            if new_stock < 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cannot reduce stock below 0. Current stock is {current_stock}."
+                )
+
+            # 2. Update stock under the row lock
             self.product_repo.update_stock(data.product_id, new_stock)
             self.conn.commit()
+
             return {
                 "product_id": data.product_id,
                 "previous_stock": current_stock,
                 "change_quantity": data.change_quantity,
                 "new_stock": new_stock
             }
-        except Exception as e:
+        except Exception:
             self.conn.rollback()
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+            raise
