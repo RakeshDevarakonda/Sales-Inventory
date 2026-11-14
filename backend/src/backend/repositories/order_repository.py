@@ -89,12 +89,14 @@ class OrderRepository:
             if not order:
                 return None
 
+            # Lock order items directly without joining products table to avoid
+            # implicitly acquiring product locks in arbitrary/unsorted order.
+            # Product row locks are acquired explicitly and deterministically by product_id in the service layer.
             cursor.execute(
                 """
-                SELECT oi.id, oi.product_id, p.name AS product_name, p.sku AS product_sku,
+                SELECT oi.id, oi.product_id,
                        oi.quantity, oi.unit_price, oi.subtotal, oi.created_at, oi.updated_at
                 FROM order_items oi
-                JOIN products p ON oi.product_id = p.id
                 WHERE oi.order_id = %s
                 FOR UPDATE
                 """,
