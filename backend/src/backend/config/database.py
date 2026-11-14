@@ -114,11 +114,29 @@ TABLE_DEFINITIONS = [
         CONSTRAINT chk_item_price CHECK (unit_price >= 0),
         CONSTRAINT chk_item_subtotal CHECK (subtotal >= 0)
     ) ENGINE=InnoDB;
-    """,
-    "CREATE INDEX idx_orders_status ON orders(status);",
-    "CREATE INDEX idx_orders_customer ON orders(customer_id);",
-    "CREATE INDEX idx_orders_created_by ON orders(created_by_id);"
+    """
 ]
+
+INDEX_DEFINITIONS = [
+    ("orders", "idx_orders_status", "CREATE INDEX idx_orders_status ON orders(status);"),
+    ("orders", "idx_orders_customer", "CREATE INDEX idx_orders_customer ON orders(customer_id);"),
+    ("orders", "idx_orders_created_by", "CREATE INDEX idx_orders_created_by ON orders(created_by_id);"),
+]
+
+
+def _index_exists(cursor, table_name: str, index_name: str) -> bool:
+    cursor.execute(
+        """
+        SELECT COUNT(1) AS count
+        FROM information_schema.statistics
+        WHERE table_schema = DATABASE()
+          AND table_name = %s
+          AND index_name = %s;
+        """,
+        (table_name, index_name)
+    )
+    result = cursor.fetchone()
+    return bool(result and result.get("count", 0) > 0)
 
 
 def init_db():
@@ -143,15 +161,15 @@ def init_db():
     db_conn = get_db_connection()
     try:
         with db_conn.cursor() as cursor:
+            # Create tables
             for statement in TABLE_DEFINITIONS:
-                try:
-                    cursor.execute(statement)
-                except pymysql.err.OperationalError as e:
-                    # Ignore duplicate index errors if already created (Error 1061)
-                    if e.args[0] == 1061:
-                        pass
-                    else:
-                        raise e
+                cursor.execute(statement)
+
+            # Create indexes only if they do not already exist
+            for table_name, index_name, create_sql in INDEX_DEFINITIONS:
+                if not _index_exists(cursor, table_name, index_name):
+                    cursor.execute(create_sql)
+
         db_conn.commit()
         print(f"Database '{config['database']}' and tables initialized successfully.")
     finally:

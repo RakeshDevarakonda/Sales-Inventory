@@ -53,12 +53,14 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "pymysql" },
+    { name = "python-dotenv" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.162.7" },
     { name = "pymysql", specifier = ">=1.2.4" },
+    { name = "python-dotenv", specifier = ">=1.2.4" },
 ]
 
 [[package]]

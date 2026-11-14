@@ -5,11 +5,8 @@ from backend.config.database import init_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Run auto-migrations
-    try:
-        init_db()
-    except Exception as e:
-        print(f"Database initialization failed: {e}")
+    # Startup: Run auto-migrations. Fail fast if database cannot connect.
+    init_db()
 
     yield
 
