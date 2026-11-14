@@ -6,7 +6,7 @@ class CustomerRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, name, email, phone, address, created_at
+                SELECT id, name, email, phone, address, created_at, updated_at
                 FROM customers
                 WHERE id = %s
                 """,
@@ -18,7 +18,7 @@ class CustomerRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, name, email, phone, address, created_at
+                SELECT id, name, email, phone, address, created_at, updated_at
                 FROM customers
                 ORDER BY id DESC
                 """

@@ -24,3 +24,4 @@ class CustomerOut(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     created_at: datetime
+    updated_at: datetime

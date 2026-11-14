@@ -7,8 +7,8 @@ class OrderHandler:
     def __init__(self, conn):
         self.service = OrderService(conn)
 
-    def create(self, data: OrderCreate, current_user: dict, background_tasks: BackgroundTasks = None):
-        return self.service.create(data, current_user, background_tasks)
+    def create(self, data: OrderCreate, current_user: dict, email_queue: BackgroundTasks = None):
+        return self.service.create(data, current_user, email_queue)
 
     def get_all(self):
         return self.service.get_all()
@@ -25,8 +25,8 @@ class OrderHandler:
     def cancel(self, order_id: int, current_user: dict):
         return self.service.cancel(order_id, current_user)
 
-    def approve(self, order_id: int, action: OrderApprovalAction, manager_user: dict, background_tasks: BackgroundTasks = None):
-        return self.service.approve_order(order_id, action, manager_user, background_tasks)
+    def approve(self, order_id: int, action: OrderApprovalAction, manager_user: dict, email_queue: BackgroundTasks = None):
+        return self.service.approve_order(order_id, action, manager_user, email_queue)
 
-    def reject(self, order_id: int, action: OrderApprovalAction, manager_user: dict, background_tasks: BackgroundTasks = None):
-        return self.service.reject_order(order_id, action, manager_user, background_tasks)
+    def reject(self, order_id: int, action: OrderApprovalAction, manager_user: dict, email_queue: BackgroundTasks = None):
+        return self.service.reject_order(order_id, action, manager_user, email_queue)

@@ -15,8 +15,5 @@ class InventoryHandler:
     def get_low_stock(self, threshold: int = 10):
         return self.service.get_low_stock(threshold)
 
-    def get_movements(self, limit: int = 100):
-        return self.service.get_movements(limit)
-
-    def adjust_stock(self, data: StockAdjustmentCreate, current_user: dict):
-        return self.service.adjust_stock(data, performed_by_id=current_user["id"])
+    def adjust_stock(self, data: StockAdjustmentCreate):
+        return self.service.adjust_stock(data)

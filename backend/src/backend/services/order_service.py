@@ -4,7 +4,6 @@ from backend.config.settings import APPROVAL_THRESHOLD_AMOUNT as APPROVAL_THRESH
 from backend.repositories.order_repository import OrderRepository
 from backend.repositories.product_repository import ProductRepository
 from backend.repositories.customer_repository import CustomerRepository
-from backend.repositories.inventory_repository import InventoryRepository
 from backend.repositories.user_repository import UserRepository
 from backend.schemas.order import OrderCreate, OrderUpdate, OrderApprovalAction
 from backend.services.email_service import email_service
@@ -16,7 +15,6 @@ class OrderService:
         self.repo = OrderRepository(conn)
         self.product_repo = ProductRepository(conn)
         self.customer_repo = CustomerRepository(conn)
-        self.inventory_repo = InventoryRepository(conn)
         self.user_repo = UserRepository(conn)
 
     def get_all(self):
@@ -35,13 +33,11 @@ class OrderService:
 
         return order
 
-    def create(self, data: OrderCreate, current_user: dict, background_tasks: BackgroundTasks = None):
-        # 1. Validate customer
+    def create(self, data: OrderCreate, current_user: dict, email_queue: BackgroundTasks = None):
         customer = self.customer_repo.find_by_id(data.customer_id)
         if not customer:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
 
-        # 2. Validate products & stock
         total_amount = Decimal("0.00")
         validated_items = []
 
@@ -70,7 +66,6 @@ class OrderService:
                 "subtotal": subtotal
             })
 
-        # 3. Determine status based on approval threshold
         requires_approval = total_amount > APPROVAL_THRESHOLD
         status_val = "PENDING_APPROVAL" if requires_approval else "CONFIRMED"
 
@@ -100,22 +95,11 @@ class OrderService:
                     prod = val_item["product"]
                     new_stock = prod["stock_quantity"] - val_item["quantity"]
                     self.product_repo.update_stock(prod["id"], new_stock)
-                    self.inventory_repo.record_movement(
-                        product_id=prod["id"],
-                        change_quantity=-val_item["quantity"],
-                        previous_stock=prod["stock_quantity"],
-                        new_stock=new_stock,
-                        movement_type="ORDER_FULFILLMENT",
-                        reference_id=order_number,
-                        performed_by_id=current_user["id"],
-                        notes="Auto-confirmed order fulfillment"
-                    )
 
-            self.repo.commit()
+            self.conn.commit()
 
-            # Async Email Notification to Manager if approval is required
-            if requires_approval and background_tasks:
-                background_tasks.add_task(
+            if requires_approval and email_queue:
+                email_queue.add_task(
                     email_service.send_order_pending_approval_notice,
                     order_number=order_number,
                     total_amount=total_amount,
@@ -125,7 +109,7 @@ class OrderService:
             return self.repo.get_by_id(order_id)
 
         except Exception as e:
-            self.repo.rollback()
+            self.conn.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to place order: {str(e)}")
 
     def update_pending_order(self, order_id: int, data: OrderUpdate, current_user: dict):
@@ -174,10 +158,10 @@ class OrderService:
 
             status_val = "PENDING_APPROVAL" if total_amount > APPROVAL_THRESHOLD else "CONFIRMED"
             self.repo.update_order_totals(order_id, total_amount, status_val)
-            self.repo.commit()
+            self.conn.commit()
             return self.repo.get_by_id(order_id)
         except Exception as e:
-            self.repo.rollback()
+            self.conn.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     def cancel(self, order_id: int, current_user: dict):
@@ -191,26 +175,21 @@ class OrderService:
         if order["status"] in ("CANCELLED", "REJECTED"):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Order is already {order['status']}")
 
-        if order["status"] in ("CONFIRMED", "APPROVED"):
-            for item in order["items"]:
-                prod = self.product_repo.find_by_id(item["product_id"])
-                new_stock = prod["stock_quantity"] + item["quantity"]
-                self.product_repo.update_stock(prod["id"], new_stock)
-                self.inventory_repo.record_movement(
-                    product_id=prod["id"],
-                    change_quantity=item["quantity"],
-                    previous_stock=prod["stock_quantity"],
-                    new_stock=new_stock,
-                    movement_type="ORDER_CANCELLED",
-                    reference_id=order["order_number"],
-                    performed_by_id=current_user["id"],
-                    notes="Returned to stock on order cancellation"
-                )
+        try:
+            if order["status"] in ("CONFIRMED", "APPROVED"):
+                for item in order["items"]:
+                    prod = self.product_repo.find_by_id(item["product_id"])
+                    new_stock = prod["stock_quantity"] + item["quantity"]
+                    self.product_repo.update_stock(prod["id"], new_stock)
 
-        self.repo.update_status(order_id, "CANCELLED")
-        return {"message": "Order cancelled successfully", "order_id": order_id}
+            self.repo.update_status(order_id, "CANCELLED")
+            self.conn.commit()
+            return {"message": "Order cancelled successfully", "order_id": order_id}
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-    def approve_order(self, order_id: int, action: OrderApprovalAction, manager_user: dict, background_tasks: BackgroundTasks = None):
+    def approve_order(self, order_id: int, action: OrderApprovalAction, manager_user: dict, email_queue: BackgroundTasks = None):
         order = self.repo.get_by_id(order_id)
         if not order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
@@ -221,42 +200,36 @@ class OrderService:
                 detail=f"Order is in '{order['status']}' state; only PENDING_APPROVAL orders can be approved."
             )
 
-        for item in order["items"]:
-            prod = self.product_repo.find_by_id(item["product_id"])
-            if prod["stock_quantity"] < item["quantity"]:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot approve order: '{prod['name']}' has insufficient stock ({prod['stock_quantity']} remaining)."
+        try:
+            for item in order["items"]:
+                prod = self.product_repo.find_by_id(item["product_id"])
+                if prod["stock_quantity"] < item["quantity"]:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Cannot approve order: '{prod['name']}' has insufficient stock ({prod['stock_quantity']} remaining)."
+                    )
+                new_stock = prod["stock_quantity"] - item["quantity"]
+                self.product_repo.update_stock(prod["id"], new_stock)
+
+            self.repo.update_status(order_id, "APPROVED", reviewed_by_id=manager_user["id"], notes=action.approval_notes)
+            self.conn.commit()
+
+            rep_user = self.user_repo.find_by_id(order["created_by_id"])
+            if rep_user and email_queue:
+                email_queue.add_task(
+                    email_service.send_order_decision_notice,
+                    sales_rep_email=rep_user["email"],
+                    order_number=order["order_number"],
+                    decision="APPROVED",
+                    notes=action.approval_notes
                 )
-            new_stock = prod["stock_quantity"] - item["quantity"]
-            self.product_repo.update_stock(prod["id"], new_stock)
-            self.inventory_repo.record_movement(
-                product_id=prod["id"],
-                change_quantity=-item["quantity"],
-                previous_stock=prod["stock_quantity"],
-                new_stock=new_stock,
-                movement_type="ORDER_FULFILLMENT",
-                reference_id=order["order_number"],
-                performed_by_id=manager_user["id"],
-                notes=f"Manager approved: {action.approval_notes or 'No notes'}"
-            )
 
-        self.repo.update_status(order_id, "APPROVED", reviewed_by_id=manager_user["id"], notes=action.approval_notes)
+            return self.repo.get_by_id(order_id)
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-        # Notify the sales rep by email
-        rep_user = self.user_repo.find_by_id(order["created_by_id"])
-        if rep_user and background_tasks:
-            background_tasks.add_task(
-                email_service.send_order_decision_notice,
-                sales_rep_email=rep_user["email"],
-                order_number=order["order_number"],
-                decision="APPROVED",
-                notes=action.approval_notes
-            )
-
-        return self.repo.get_by_id(order_id)
-
-    def reject_order(self, order_id: int, action: OrderApprovalAction, manager_user: dict, background_tasks: BackgroundTasks = None):
+    def reject_order(self, order_id: int, action: OrderApprovalAction, manager_user: dict, email_queue: BackgroundTasks = None):
         order = self.repo.get_by_id(order_id)
         if not order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
@@ -267,17 +240,21 @@ class OrderService:
                 detail=f"Order is in '{order['status']}' state; only PENDING_APPROVAL orders can be rejected."
             )
 
-        self.repo.update_status(order_id, "REJECTED", reviewed_by_id=manager_user["id"], notes=action.approval_notes)
+        try:
+            self.repo.update_status(order_id, "REJECTED", reviewed_by_id=manager_user["id"], notes=action.approval_notes)
+            self.conn.commit()
 
-        # Notify the sales rep by email
-        rep_user = self.user_repo.find_by_id(order["created_by_id"])
-        if rep_user and background_tasks:
-            background_tasks.add_task(
-                email_service.send_order_decision_notice,
-                sales_rep_email=rep_user["email"],
-                order_number=order["order_number"],
-                decision="REJECTED",
-                notes=action.approval_notes
-            )
+            rep_user = self.user_repo.find_by_id(order["created_by_id"])
+            if rep_user and email_queue:
+                email_queue.add_task(
+                    email_service.send_order_decision_notice,
+                    sales_rep_email=rep_user["email"],
+                    order_number=order["order_number"],
+                    decision="REJECTED",
+                    notes=action.approval_notes
+                )
 
-        return self.repo.get_by_id(order_id)
+            return self.repo.get_by_id(order_id)
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

@@ -6,7 +6,7 @@ class UserRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, username, email, phone, password_hash, role, is_active, created_at
+                SELECT id, username, email, phone, password_hash, role, is_active, created_at, updated_at
                 FROM users
                 WHERE id = %s
                 """,
@@ -32,7 +32,7 @@ class UserRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, username, email, phone, password_hash, role, is_active, created_at
+                SELECT id, username, email, phone, password_hash, role, is_active, created_at, updated_at
                 FROM users
                 WHERE username = %s OR email = %s
                 """,
@@ -44,7 +44,7 @@ class UserRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, username, email, phone, role, is_active, created_at
+                SELECT id, username, email, phone, role, is_active, created_at, updated_at
                 FROM users
                 ORDER BY id DESC
                 """

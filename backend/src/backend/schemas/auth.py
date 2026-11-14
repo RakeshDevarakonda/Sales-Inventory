@@ -28,7 +28,6 @@ class UserRegister(BaseModel):
     confirm_password: str
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     phone: Optional[str] = Field(None, max_length=20)
-    # Role is strictly set to SALES_REP by backend
 
     @model_validator(mode="after")
     def validate_passwords_and_defaults(self):
@@ -75,6 +74,7 @@ class UserOut(BaseModel):
     role: UserRole
     is_active: bool
     created_at: datetime
+    updated_at: datetime
 
 
 class TokenResponse(BaseModel):

@@ -1,13 +1,16 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from backend.config.database import init_db, close_connection_pool
+from backend.config.database import check_database_connectivity, close_connection_pool
 from backend.routes import api_router
+from backend.handlers.error_handlers import register_error_handlers
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Run auto-migrations and establish connection pool
-    init_db()
+    # Startup: Verify database connection without running DDL
+    print("Verifying database connectivity...")
+    check_database_connectivity()
+    print("Database connected successfully.")
 
     yield
 
@@ -21,6 +24,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Register Global Exception Handlers
+register_error_handlers(app)
 
 # Single entry point for all API routes
 app.include_router(api_router)

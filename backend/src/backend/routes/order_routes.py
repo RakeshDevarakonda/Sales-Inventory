@@ -11,11 +11,11 @@ router = APIRouter(prefix="/api/orders", tags=["Sales Order Management"])
 @router.post("", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
 def create_order(
     data: OrderCreate,
-    background_tasks: BackgroundTasks,
+    email_queue: BackgroundTasks,
     conn=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    return OrderHandler(conn).create(data, current_user, background_tasks)
+    return OrderHandler(conn).create(data, current_user, email_queue)
 
 
 @router.get("", response_model=List[OrderOut])
@@ -66,19 +66,19 @@ def cancel_order(
 def approve_order(
     order_id: int,
     action: OrderApprovalAction,
-    background_tasks: BackgroundTasks,
+    email_queue: BackgroundTasks,
     conn=Depends(get_db),
     manager_user=Depends(require_role("MANAGER"))
 ):
-    return OrderHandler(conn).approve(order_id, action, manager_user, background_tasks)
+    return OrderHandler(conn).approve(order_id, action, manager_user, email_queue)
 
 
 @router.post("/{order_id}/reject", response_model=OrderOut)
 def reject_order(
     order_id: int,
     action: OrderApprovalAction,
-    background_tasks: BackgroundTasks,
+    email_queue: BackgroundTasks,
     conn=Depends(get_db),
     manager_user=Depends(require_role("MANAGER"))
 ):
-    return OrderHandler(conn).reject(order_id, action, manager_user, background_tasks)
+    return OrderHandler(conn).reject(order_id, action, manager_user, email_queue)

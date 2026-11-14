@@ -58,7 +58,7 @@ class OrderRepository:
             cursor.execute(
                 """
                 SELECT oi.id, oi.product_id, p.name AS product_name, p.sku AS product_sku,
-                       oi.quantity, oi.unit_price, oi.subtotal
+                       oi.quantity, oi.unit_price, oi.subtotal, oi.created_at, oi.updated_at
                 FROM order_items oi
                 JOIN products p ON oi.product_id = p.id
                 WHERE oi.order_id = %s
@@ -77,8 +77,7 @@ class OrderRepository:
                 """,
                 (order_number, customer_id, created_by_id, total_amount, status)
             )
-            order_id = cursor.lastrowid
-            return order_id
+            return cursor.lastrowid
 
     def add_order_item(self, order_id: int, product_id: int, quantity: int, unit_price, subtotal):
         with self.conn.cursor() as cursor:
@@ -117,10 +116,3 @@ class OrderRepository:
                     "UPDATE orders SET status = %s WHERE id = %s",
                     (status, order_id)
                 )
-            self.conn.commit()
-
-    def commit(self):
-        self.conn.commit()
-
-    def rollback(self):
-        self.conn.rollback()
