@@ -2,10 +2,14 @@ import os
 import pymysql
 from dotenv import load_dotenv
 from urllib.parse import urlparse, unquote
+from dbutils.pooled_db import PooledDB
 
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Global pool instance
+_pool: PooledDB | None = None
 
 
 def _parse_db_url():
@@ -21,18 +25,31 @@ def _parse_db_url():
     }
 
 
+def get_connection_pool() -> PooledDB:
+    global _pool
+    if _pool is None:
+        config = _parse_db_url()
+        _pool = PooledDB(
+            creator=pymysql,
+            maxconnections=10,  # Max number of connections allowed in pool
+            mincached=2,        # Initial number of idle connections
+            maxcached=5,        # Max number of idle connections
+            blocking=True,      # Wait for a connection to be returned if pool is full
+            host=config["host"],
+            port=config["port"],
+            user=config["user"],
+            password=config["password"],
+            database=config["database"],
+            cursorclass=pymysql.cursors.DictCursor,
+            autocommit=False,
+        )
+    return _pool
+
+
 def get_db_connection():
-    config = _parse_db_url()
-    connection = pymysql.connect(
-        host=config["host"],
-        port=config["port"],
-        user=config["user"],
-        password=config["password"],
-        database=config["database"],
-        cursorclass=pymysql.cursors.DictCursor,
-        autocommit=False,
-    )
-    return connection
+    # Reuses/iterates an existing connection from the pool if available
+    pool = get_connection_pool()
+    return pool.connection()
 
 
 def get_db():
@@ -40,18 +57,28 @@ def get_db():
     try:
         yield conn
     finally:
+        # Returns the connection back to the pool (does not physically terminate the socket)
         conn.close()
+
+
+def close_connection_pool():
+    global _pool
+    if _pool is not None:
+        _pool.close()
+        _pool = None
+        print("Database connection pool closed.")
 
 
 TABLE_DEFINITIONS = [
     """
     CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(50) NOT NULL UNIQUE,
+        username VARCHAR(50) NULL UNIQUE,
         email VARCHAR(100) NOT NULL UNIQUE,
+        phone VARCHAR(20) NULL,
         password_hash VARCHAR(255) NOT NULL,
-        full_name VARCHAR(100) NOT NULL,
-        role ENUM('SALES_REP', 'MANAGER') NOT NULL,
+        full_name VARCHAR(100) NULL,
+        role ENUM('SALES_REP', 'MANAGER') NOT NULL DEFAULT 'SALES_REP',
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB;
@@ -114,6 +141,35 @@ TABLE_DEFINITIONS = [
         CONSTRAINT chk_item_price CHECK (unit_price >= 0),
         CONSTRAINT chk_item_subtotal CHECK (subtotal >= 0)
     ) ENGINE=InnoDB;
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS sessions (
+        id VARCHAR(36) PRIMARY KEY,
+        user_id INT NOT NULL,
+        refresh_token_hash VARCHAR(64) NOT NULL,
+        user_agent TEXT NULL,
+        ip_address VARCHAR(45) NULL,
+        is_revoked BOOLEAN DEFAULT FALSE,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB;
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS inventory_movements (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        product_id INT NOT NULL,
+        change_quantity INT NOT NULL,
+        previous_stock INT NOT NULL,
+        new_stock INT NOT NULL,
+        movement_type ENUM('ORDER_FULFILLMENT', 'ORDER_CANCELLED', 'MANUAL_ADJUSTMENT', 'RESTOCK') NOT NULL,
+        reference_id VARCHAR(50) NULL,
+        performed_by_id INT NOT NULL,
+        notes TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (product_id) REFERENCES products(id),
+        FOREIGN KEY (performed_by_id) REFERENCES users(id)
+    ) ENGINE=InnoDB;
     """
 ]
 
@@ -121,6 +177,8 @@ INDEX_DEFINITIONS = [
     ("orders", "idx_orders_status", "CREATE INDEX idx_orders_status ON orders(status);"),
     ("orders", "idx_orders_customer", "CREATE INDEX idx_orders_customer ON orders(customer_id);"),
     ("orders", "idx_orders_created_by", "CREATE INDEX idx_orders_created_by ON orders(created_by_id);"),
+    ("sessions", "idx_sessions_user_id", "CREATE INDEX idx_sessions_user_id ON sessions(user_id);"),
+    ("inventory_movements", "idx_movements_product", "CREATE INDEX idx_movements_product ON inventory_movements(product_id);"),
 ]
 
 
@@ -134,6 +192,21 @@ def _index_exists(cursor, table_name: str, index_name: str) -> bool:
           AND index_name = %s;
         """,
         (table_name, index_name)
+    )
+    result = cursor.fetchone()
+    return bool(result and result.get("count", 0) > 0)
+
+
+def _column_exists(cursor, table_name: str, column_name: str) -> bool:
+    cursor.execute(
+        """
+        SELECT COUNT(1) AS count
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = %s
+          AND column_name = %s;
+        """,
+        (table_name, column_name)
     )
     result = cursor.fetchone()
     return bool(result and result.get("count", 0) > 0)
@@ -164,6 +237,12 @@ def init_db():
             # Create tables
             for statement in TABLE_DEFINITIONS:
                 cursor.execute(statement)
+
+            # Auto-migrate: Add phone column to users table if not exists
+            if not _column_exists(cursor, "users", "phone"):
+                cursor.execute("ALTER TABLE users ADD COLUMN phone VARCHAR(20) NULL AFTER email;")
+                cursor.execute("ALTER TABLE users MODIFY COLUMN username VARCHAR(50) NULL UNIQUE;")
+                cursor.execute("ALTER TABLE users MODIFY COLUMN full_name VARCHAR(100) NULL;")
 
             # Create indexes only if they do not already exist
             for table_name, index_name, create_sql in INDEX_DEFINITIONS:
