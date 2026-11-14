@@ -6,6 +6,7 @@ from backend.routes.customer_routes import router as customer_router
 from backend.routes.product_routes import router as product_router
 from backend.routes.inventory_routes import router as inventory_router
 from backend.routes.order_routes import router as order_router
+from backend.routes.dashboard_routes import router as dashboard_router
 
 api_router = APIRouter()
 
@@ -16,3 +17,4 @@ api_router.include_router(customer_router)
 api_router.include_router(product_router)
 api_router.include_router(inventory_router)
 api_router.include_router(order_router)
+api_router.include_router(dashboard_router)

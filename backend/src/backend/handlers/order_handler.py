@@ -1,3 +1,4 @@
+from fastapi import BackgroundTasks
 from backend.schemas.order import OrderCreate, OrderUpdate, OrderApprovalAction
 from backend.services.order_service import OrderService
 
@@ -6,8 +7,8 @@ class OrderHandler:
     def __init__(self, conn):
         self.service = OrderService(conn)
 
-    def create(self, data: OrderCreate, current_user: dict):
-        return self.service.create(data, current_user)
+    def create(self, data: OrderCreate, current_user: dict, background_tasks: BackgroundTasks = None):
+        return self.service.create(data, current_user, background_tasks)
 
     def get_all(self):
         return self.service.get_all()
@@ -24,8 +25,8 @@ class OrderHandler:
     def cancel(self, order_id: int, current_user: dict):
         return self.service.cancel(order_id, current_user)
 
-    def approve(self, order_id: int, action: OrderApprovalAction, manager_user: dict):
-        return self.service.approve_order(order_id, action, manager_user)
+    def approve(self, order_id: int, action: OrderApprovalAction, manager_user: dict, background_tasks: BackgroundTasks = None):
+        return self.service.approve_order(order_id, action, manager_user, background_tasks)
 
-    def reject(self, order_id: int, action: OrderApprovalAction, manager_user: dict):
-        return self.service.reject_order(order_id, action, manager_user)
+    def reject(self, order_id: int, action: OrderApprovalAction, manager_user: dict, background_tasks: BackgroundTasks = None):
+        return self.service.reject_order(order_id, action, manager_user, background_tasks)

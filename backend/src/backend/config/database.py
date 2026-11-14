@@ -1,12 +1,8 @@
 import os
 import pymysql
-from dotenv import load_dotenv
 from urllib.parse import urlparse, unquote
 from dbutils.pooled_db import PooledDB
-
-load_dotenv()
-
-DATABASE_URL = os.getenv("DATABASE_URL")
+from backend.config.settings import DATABASE_URL
 
 # Global pool instance
 _pool: PooledDB | None = None

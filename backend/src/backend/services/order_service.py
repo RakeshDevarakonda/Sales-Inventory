@@ -1,14 +1,13 @@
-import os
 from decimal import Decimal
-from fastapi import HTTPException, status
+from fastapi import BackgroundTasks, HTTPException, status
+from backend.config.settings import APPROVAL_THRESHOLD_AMOUNT as APPROVAL_THRESHOLD
 from backend.repositories.order_repository import OrderRepository
 from backend.repositories.product_repository import ProductRepository
 from backend.repositories.customer_repository import CustomerRepository
 from backend.repositories.inventory_repository import InventoryRepository
+from backend.repositories.user_repository import UserRepository
 from backend.schemas.order import OrderCreate, OrderUpdate, OrderApprovalAction
-
-
-APPROVAL_THRESHOLD = Decimal(os.getenv("APPROVAL_THRESHOLD_AMOUNT", "1000.00"))
+from backend.services.email_service import email_service
 
 
 class OrderService:
@@ -18,6 +17,7 @@ class OrderService:
         self.product_repo = ProductRepository(conn)
         self.customer_repo = CustomerRepository(conn)
         self.inventory_repo = InventoryRepository(conn)
+        self.user_repo = UserRepository(conn)
 
     def get_all(self):
         return self.repo.get_all()
@@ -30,13 +30,12 @@ class OrderService:
         if not order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
 
-        # Sales rep can only view their own orders; manager can view all
         if current_user["role"] != "MANAGER" and order["created_by_id"] != current_user["id"]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
         return order
 
-    def create(self, data: OrderCreate, current_user: dict):
+    def create(self, data: OrderCreate, current_user: dict, background_tasks: BackgroundTasks = None):
         # 1. Validate customer
         customer = self.customer_repo.find_by_id(data.customer_id)
         if not customer:
@@ -76,7 +75,6 @@ class OrderService:
         status_val = "PENDING_APPROVAL" if requires_approval else "CONFIRMED"
 
         try:
-            # Generate unique order number
             import time
             order_number = f"ORD-{int(time.time())}"
 
@@ -88,7 +86,6 @@ class OrderService:
                 status=status_val
             )
 
-            # Insert line items
             for val_item in validated_items:
                 self.repo.add_order_item(
                     order_id=order_id,
@@ -98,7 +95,6 @@ class OrderService:
                     subtotal=val_item["subtotal"]
                 )
 
-            # If CONFIRMED immediately, deduct inventory and log movement
             if status_val == "CONFIRMED":
                 for val_item in validated_items:
                     prod = val_item["product"]
@@ -116,6 +112,16 @@ class OrderService:
                     )
 
             self.repo.commit()
+
+            # Async Email Notification to Manager if approval is required
+            if requires_approval and background_tasks:
+                background_tasks.add_task(
+                    email_service.send_order_pending_approval_notice,
+                    order_number=order_number,
+                    total_amount=total_amount,
+                    sales_rep_name=current_user.get("username", "Sales Rep")
+                )
+
             return self.repo.get_by_id(order_id)
 
         except Exception as e:
@@ -185,7 +191,6 @@ class OrderService:
         if order["status"] in ("CANCELLED", "REJECTED"):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Order is already {order['status']}")
 
-        # If order was CONFIRMED or APPROVED, return deducted stock back to inventory
         if order["status"] in ("CONFIRMED", "APPROVED"):
             for item in order["items"]:
                 prod = self.product_repo.find_by_id(item["product_id"])
@@ -205,7 +210,7 @@ class OrderService:
         self.repo.update_status(order_id, "CANCELLED")
         return {"message": "Order cancelled successfully", "order_id": order_id}
 
-    def approve_order(self, order_id: int, action: OrderApprovalAction, manager_user: dict):
+    def approve_order(self, order_id: int, action: OrderApprovalAction, manager_user: dict, background_tasks: BackgroundTasks = None):
         order = self.repo.get_by_id(order_id)
         if not order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
@@ -216,7 +221,6 @@ class OrderService:
                 detail=f"Order is in '{order['status']}' state; only PENDING_APPROVAL orders can be approved."
             )
 
-        # Deduct stock upon approval
         for item in order["items"]:
             prod = self.product_repo.find_by_id(item["product_id"])
             if prod["stock_quantity"] < item["quantity"]:
@@ -238,9 +242,21 @@ class OrderService:
             )
 
         self.repo.update_status(order_id, "APPROVED", reviewed_by_id=manager_user["id"], notes=action.approval_notes)
+
+        # Notify the sales rep by email
+        rep_user = self.user_repo.find_by_id(order["created_by_id"])
+        if rep_user and background_tasks:
+            background_tasks.add_task(
+                email_service.send_order_decision_notice,
+                sales_rep_email=rep_user["email"],
+                order_number=order["order_number"],
+                decision="APPROVED",
+                notes=action.approval_notes
+            )
+
         return self.repo.get_by_id(order_id)
 
-    def reject_order(self, order_id: int, action: OrderApprovalAction, manager_user: dict):
+    def reject_order(self, order_id: int, action: OrderApprovalAction, manager_user: dict, background_tasks: BackgroundTasks = None):
         order = self.repo.get_by_id(order_id)
         if not order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
@@ -252,4 +268,16 @@ class OrderService:
             )
 
         self.repo.update_status(order_id, "REJECTED", reviewed_by_id=manager_user["id"], notes=action.approval_notes)
+
+        # Notify the sales rep by email
+        rep_user = self.user_repo.find_by_id(order["created_by_id"])
+        if rep_user and background_tasks:
+            background_tasks.add_task(
+                email_service.send_order_decision_notice,
+                sales_rep_email=rep_user["email"],
+                order_number=order["order_number"],
+                decision="REJECTED",
+                notes=action.approval_notes
+            )
+
         return self.repo.get_by_id(order_id)
