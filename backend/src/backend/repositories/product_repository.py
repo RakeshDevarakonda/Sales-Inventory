@@ -14,6 +14,20 @@ class ProductRepository:
             )
             return cursor.fetchone()
 
+    def find_by_id_for_update(self, product_id: int):
+        """Acquires an exclusive row lock on the product row to prevent concurrent overselling."""
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, sku, name, description, price, stock_quantity, is_active, created_at, updated_at
+                FROM products
+                WHERE id = %s
+                FOR UPDATE
+                """,
+                (product_id,)
+            )
+            return cursor.fetchone()
+
     def find_by_sku(self, sku: str, exclude_id: int = None):
         with self.conn.cursor() as cursor:
             if exclude_id:

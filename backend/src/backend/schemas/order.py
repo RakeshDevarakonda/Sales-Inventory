@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 from decimal import Decimal
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class OrderStatus(str, Enum):
@@ -26,15 +26,37 @@ class OrderItemOut(BaseModel):
     quantity: int
     unit_price: Decimal
     subtotal: Decimal
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class OrderCreate(BaseModel):
     customer_id: int
     items: List[OrderItemCreate] = Field(..., min_length=1)
 
+    @model_validator(mode="after")
+    def consolidate_duplicate_items(self):
+        """
+        Consolidates duplicate product_id line items by summing their quantities.
+        Prevents DB UNIQUE(order_id, product_id) collision.
+        """
+        combined: Dict[int, int] = {}
+        for item in self.items:
+            combined[item.product_id] = combined.get(item.product_id, 0) + item.quantity
+        self.items = [OrderItemCreate(product_id=pid, quantity=qty) for pid, qty in combined.items()]
+        return self
+
 
 class OrderUpdate(BaseModel):
     items: List[OrderItemCreate] = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def consolidate_duplicate_items(self):
+        combined: Dict[int, int] = {}
+        for item in self.items:
+            combined[item.product_id] = combined.get(item.product_id, 0) + item.quantity
+        self.items = [OrderItemCreate(product_id=pid, quantity=qty) for pid, qty in combined.items()]
+        return self
 
 
 class OrderApprovalAction(BaseModel):

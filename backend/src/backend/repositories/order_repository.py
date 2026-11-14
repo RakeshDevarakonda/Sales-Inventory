@@ -68,6 +68,41 @@ class OrderRepository:
             order["items"] = cursor.fetchall()
             return order
 
+    def get_by_id_for_update(self, order_id: int):
+        """Acquires an exclusive lock on the order row to prevent concurrent approval/cancellation race conditions."""
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT o.id, o.order_number, o.customer_id, c.name AS customer_name,
+                       o.created_by_id, u.username AS created_by_username,
+                       o.total_amount, o.status, o.reviewed_by_id, o.reviewed_at,
+                       o.approval_notes, o.created_at, o.updated_at
+                FROM orders o
+                JOIN customers c ON o.customer_id = c.id
+                JOIN users u ON o.created_by_id = u.id
+                WHERE o.id = %s
+                FOR UPDATE
+                """,
+                (order_id,)
+            )
+            order = cursor.fetchone()
+            if not order:
+                return None
+
+            cursor.execute(
+                """
+                SELECT oi.id, oi.product_id, p.name AS product_name, p.sku AS product_sku,
+                       oi.quantity, oi.unit_price, oi.subtotal, oi.created_at, oi.updated_at
+                FROM order_items oi
+                JOIN products p ON oi.product_id = p.id
+                WHERE oi.order_id = %s
+                FOR UPDATE
+                """,
+                (order_id,)
+            )
+            order["items"] = cursor.fetchall()
+            return order
+
     def create(self, order_number: str, customer_id: int, created_by_id: int, total_amount, status: str) -> int:
         with self.conn.cursor() as cursor:
             cursor.execute(
