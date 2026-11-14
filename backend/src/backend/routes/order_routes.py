@@ -19,11 +19,12 @@ def create_order(
 
 
 @router.get("", response_model=List[OrderOut])
-def get_all_orders(
+def get_orders(
     conn=Depends(get_db),
-    _user=Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
-    return OrderHandler(conn).get_all()
+    """Managers retrieve all orders; Sales Reps retrieve only their own orders."""
+    return OrderHandler(conn).get_orders(current_user)
 
 
 @router.get("/my-orders", response_model=List[OrderOut])

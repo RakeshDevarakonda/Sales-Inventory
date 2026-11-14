@@ -10,8 +10,8 @@ class OrderHandler:
     def create(self, data: OrderCreate, current_user: dict, email_queue: BackgroundTasks = None):
         return self.service.create(data, current_user, email_queue)
 
-    def get_all(self):
-        return self.service.get_all()
+    def get_orders(self, current_user: dict):
+        return self.service.get_orders(current_user)
 
     def get_my_orders(self, current_user: dict):
         return self.service.get_my_orders(current_user["id"])

@@ -5,6 +5,7 @@ from backend.schemas.customer import CustomerCreate, CustomerUpdate
 
 class CustomerService:
     def __init__(self, conn):
+        self.conn = conn
         self.repo = CustomerRepository(conn)
 
     def get_all(self):
@@ -17,16 +18,21 @@ class CustomerService:
         return customer
 
     def create(self, data: CustomerCreate):
-        customer_id = self.repo.create(
-            name=data.name,
-            email=data.email,
-            phone=data.phone,
-            address=data.address
-        )
-        return self.repo.find_by_id(customer_id)
+        try:
+            customer_id = self.repo.create(
+                name=data.name,
+                email=data.email,
+                phone=data.phone,
+                address=data.address
+            )
+            self.conn.commit()
+            return self.repo.find_by_id(customer_id)
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     def update(self, customer_id: int, data: CustomerUpdate):
-        self.get_by_id(customer_id)  # raises 404 if not found
+        self.get_by_id(customer_id)
 
         updates = {}
         if data.name is not None:
@@ -39,7 +45,12 @@ class CustomerService:
             updates["address"] = data.address
 
         if updates:
-            self.repo.update(customer_id, updates)
+            try:
+                self.repo.update(customer_id, updates)
+                self.conn.commit()
+            except Exception as e:
+                self.conn.rollback()
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
         return self.repo.find_by_id(customer_id)
 
@@ -47,8 +58,10 @@ class CustomerService:
         self.get_by_id(customer_id)
         try:
             self.repo.delete(customer_id)
+            self.conn.commit()
             return {"message": "Customer deleted successfully"}
         except Exception as e:
+            self.conn.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot delete customer because orders are associated with them"

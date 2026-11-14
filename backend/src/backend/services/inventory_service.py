@@ -36,11 +36,15 @@ class InventoryService:
                 detail=f"Cannot reduce stock below 0. Current stock is {current_stock}."
             )
 
-        self.product_repo.update_stock(data.product_id, new_stock)
-
-        return {
-            "product_id": data.product_id,
-            "previous_stock": current_stock,
-            "change_quantity": data.change_quantity,
-            "new_stock": new_stock
-        }
+        try:
+            self.product_repo.update_stock(data.product_id, new_stock)
+            self.conn.commit()
+            return {
+                "product_id": data.product_id,
+                "previous_stock": current_stock,
+                "change_quantity": data.change_quantity,
+                "new_stock": new_stock
+            }
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

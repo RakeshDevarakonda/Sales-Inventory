@@ -5,6 +5,7 @@ from backend.schemas.product import ProductCreate, ProductUpdate, ProductStatusU
 
 class ProductService:
     def __init__(self, conn):
+        self.conn = conn
         self.repo = ProductRepository(conn)
 
     def get_all(self):
@@ -22,14 +23,19 @@ class ProductService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Product with SKU '{data.sku}' already exists"
             )
-        product_id = self.repo.create(
-            sku=data.sku,
-            name=data.name,
-            description=data.description,
-            price=data.price,
-            stock_quantity=data.stock_quantity
-        )
-        return self.repo.find_by_id(product_id)
+        try:
+            product_id = self.repo.create(
+                sku=data.sku,
+                name=data.name,
+                description=data.description,
+                price=data.price,
+                stock_quantity=data.stock_quantity
+            )
+            self.conn.commit()
+            return self.repo.find_by_id(product_id)
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     def update(self, product_id: int, data: ProductUpdate):
         self.get_by_id(product_id)
@@ -45,11 +51,21 @@ class ProductService:
             updates["stock_quantity"] = data.stock_quantity
 
         if updates:
-            self.repo.update(product_id, updates)
+            try:
+                self.repo.update(product_id, updates)
+                self.conn.commit()
+            except Exception as e:
+                self.conn.rollback()
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
         return self.repo.find_by_id(product_id)
 
     def update_status(self, product_id: int, data: ProductStatusUpdate):
         self.get_by_id(product_id)
-        self.repo.update_status(product_id, data.is_active)
-        return self.repo.find_by_id(product_id)
+        try:
+            self.repo.update_status(product_id, data.is_active)
+            self.conn.commit()
+            return self.repo.find_by_id(product_id)
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

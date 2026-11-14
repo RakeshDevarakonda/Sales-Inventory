@@ -29,15 +29,19 @@ class UserService:
             )
 
         hashed = hash_password(data.password)
-        # Strictly assign SALES_REP role for public registration
-        user_id = self.repo.create(
-            username=data.username,
-            email=data.email,
-            phone=data.phone,
-            password_hash=hashed,
-            role="SALES_REP"
-        )
-        return self.repo.find_by_id(user_id)
+        try:
+            user_id = self.repo.create(
+                username=data.username,
+                email=data.email,
+                phone=data.phone,
+                password_hash=hashed,
+                role="SALES_REP"
+            )
+            self.conn.commit()
+            return self.repo.find_by_id(user_id)
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     def login(self, credentials: UserLogin):
         user = self.repo.find_by_username_or_email(credentials.username_or_email)
@@ -54,24 +58,30 @@ class UserService:
                 detail="User account is inactive"
             )
 
-        expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-        session_id = self.session_repo.create(
-            user_id=user["id"],
-            refresh_token_hash="pending",
-            expires_at=expires_at
-        )
+        try:
+            expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+            session_id = self.session_repo.create(
+                user_id=user["id"],
+                refresh_token_hash="pending",
+                expires_at=expires_at
+            )
 
-        access_token = create_access_token(user_id=user["id"], session_id=session_id, role=user["role"])
-        refresh_token, ref_expires = create_refresh_token(user_id=user["id"], session_id=session_id, role=user["role"])
-        self.session_repo.update_refresh_token(session_id, hash_token(refresh_token), ref_expires)
+            access_token = create_access_token(user_id=user["id"], session_id=session_id, role=user["role"])
+            refresh_token, ref_expires = create_refresh_token(user_id=user["id"], session_id=session_id, role=user["role"])
+            self.session_repo.update_refresh_token(session_id, hash_token(refresh_token), ref_expires)
 
-        user.pop("password_hash", None)
-        return {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer",
-            "user": user
-        }
+            self.conn.commit()
+
+            user.pop("password_hash", None)
+            return {
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "token_type": "bearer",
+                "user": user
+            }
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     def refresh_access_token(self, refresh_token: str):
         if not refresh_token:
@@ -102,6 +112,7 @@ class UserService:
 
         if hash_token(refresh_token) != session["refresh_token_hash"]:
             self.session_repo.revoke(session_id)
+            self.conn.commit()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token",
@@ -111,21 +122,27 @@ class UserService:
         user = self.repo.find_by_id(user_id)
         if not user or not user["is_active"]:
             self.session_repo.revoke(session_id)
+            self.conn.commit()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User inactive or not found",
                 headers={"WWW-Authenticate": "Bearer"}
             )
 
-        new_access_token = create_access_token(user_id=user["id"], session_id=session_id, role=user["role"])
-        new_refresh_token, new_expires = create_refresh_token(user_id=user["id"], session_id=session_id, role=user["role"])
-        self.session_repo.update_refresh_token(session_id, hash_token(new_refresh_token), new_expires)
+        try:
+            new_access_token = create_access_token(user_id=user["id"], session_id=session_id, role=user["role"])
+            new_refresh_token, new_expires = create_refresh_token(user_id=user["id"], session_id=session_id, role=user["role"])
+            self.session_repo.update_refresh_token(session_id, hash_token(new_refresh_token), new_expires)
+            self.conn.commit()
 
-        return {
-            "access_token": new_access_token,
-            "refresh_token": new_refresh_token,
-            "token_type": "bearer"
-        }
+            return {
+                "access_token": new_access_token,
+                "refresh_token": new_refresh_token,
+                "token_type": "bearer"
+            }
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     def change_password(self, user_id: int, data: ChangePasswordRequest):
         user = self.get_user_by_id(user_id)
@@ -135,16 +152,23 @@ class UserService:
                 detail="Current password is incorrect"
             )
 
-        new_hashed = hash_password(data.new_password)
-        self.repo.update_password(user_id, new_hashed)
-
-        # Invalidate all existing sessions for security
-        self.session_repo.revoke_all_for_user(user_id)
-        return {"message": "Password changed successfully. Please log in again."}
+        try:
+            new_hashed = hash_password(data.new_password)
+            self.repo.update_password(user_id, new_hashed)
+            self.session_repo.revoke_all_for_user(user_id)
+            self.conn.commit()
+            return {"message": "Password changed successfully. Please log in again."}
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     def logout(self, session_id: str):
         if session_id:
-            self.session_repo.revoke(session_id)
+            try:
+                self.session_repo.revoke(session_id)
+                self.conn.commit()
+            except Exception:
+                self.conn.rollback()
 
     def get_all_users(self):
         return self.repo.get_all()
@@ -163,14 +187,19 @@ class UserService:
             )
 
         hashed = hash_password(data.password)
-        user_id = self.repo.create(
-            username=data.username,
-            email=data.email,
-            phone=data.phone,
-            password_hash=hashed,
-            role=data.role.value if data.role else "SALES_REP"
-        )
-        return self.repo.find_by_id(user_id)
+        try:
+            user_id = self.repo.create(
+                username=data.username,
+                email=data.email,
+                phone=data.phone,
+                password_hash=hashed,
+                role=data.role.value if data.role else "SALES_REP"
+            )
+            self.conn.commit()
+            return self.repo.find_by_id(user_id)
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     def update_user(self, user_id: int, data: UserUpdate):
         self.get_user_by_id(user_id)
@@ -189,18 +218,33 @@ class UserService:
             updates["password_hash"] = hash_password(data.password)
 
         if updates:
-            self.repo.update(user_id, updates)
+            try:
+                self.repo.update(user_id, updates)
+                self.conn.commit()
+            except Exception as e:
+                self.conn.rollback()
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
         return self.repo.find_by_id(user_id)
 
     def update_role(self, user_id: int, data: UserRoleUpdate):
         self.get_user_by_id(user_id)
-        self.repo.update_role(user_id, data.role.value)
-        return self.repo.find_by_id(user_id)
+        try:
+            self.repo.update_role(user_id, data.role.value)
+            self.conn.commit()
+            return self.repo.find_by_id(user_id)
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     def update_status(self, user_id: int, data: UserStatusUpdate):
         self.get_user_by_id(user_id)
-        self.repo.update_status(user_id, data.is_active)
-        if not data.is_active:
-            self.session_repo.revoke_all_for_user(user_id)
-        return self.repo.find_by_id(user_id)
+        try:
+            self.repo.update_status(user_id, data.is_active)
+            if not data.is_active:
+                self.session_repo.revoke_all_for_user(user_id)
+            self.conn.commit()
+            return self.repo.find_by_id(user_id)
+        except Exception as e:
+            self.conn.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

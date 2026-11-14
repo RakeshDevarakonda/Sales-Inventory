@@ -34,9 +34,7 @@ class CustomerRepository:
                 """,
                 (name, email, phone, address)
             )
-            customer_id = cursor.lastrowid
-            self.conn.commit()
-            return customer_id
+            return cursor.lastrowid
 
     def update(self, customer_id: int, updates: dict):
         if not updates:
@@ -48,9 +46,7 @@ class CustomerRepository:
         sql = f"UPDATE customers SET {', '.join(fields)} WHERE id = %s"
         with self.conn.cursor() as cursor:
             cursor.execute(sql, tuple(values))
-            self.conn.commit()
 
     def delete(self, customer_id: int):
         with self.conn.cursor() as cursor:
             cursor.execute("DELETE FROM customers WHERE id = %s", (customer_id,))
-            self.conn.commit()

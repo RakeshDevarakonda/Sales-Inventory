@@ -60,9 +60,7 @@ class UserRepository:
                 """,
                 (username, email, phone, password_hash, role)
             )
-            user_id = cursor.lastrowid
-            self.conn.commit()
-            return user_id
+            return cursor.lastrowid
 
     def update(self, user_id: int, updates: dict):
         if not updates:
@@ -74,7 +72,6 @@ class UserRepository:
         sql = f"UPDATE users SET {', '.join(fields)} WHERE id = %s"
         with self.conn.cursor() as cursor:
             cursor.execute(sql, tuple(values))
-            self.conn.commit()
 
     def update_role(self, user_id: int, role: str):
         with self.conn.cursor() as cursor:
@@ -82,7 +79,6 @@ class UserRepository:
                 "UPDATE users SET role = %s WHERE id = %s",
                 (role, user_id)
             )
-            self.conn.commit()
 
     def update_status(self, user_id: int, is_active: bool):
         with self.conn.cursor() as cursor:
@@ -90,7 +86,6 @@ class UserRepository:
                 "UPDATE users SET is_active = %s WHERE id = %s",
                 (is_active, user_id)
             )
-            self.conn.commit()
 
     def update_password(self, user_id: int, password_hash: str):
         with self.conn.cursor() as cursor:
@@ -98,4 +93,3 @@ class UserRepository:
                 "UPDATE users SET password_hash = %s WHERE id = %s",
                 (password_hash, user_id)
             )
-            self.conn.commit()

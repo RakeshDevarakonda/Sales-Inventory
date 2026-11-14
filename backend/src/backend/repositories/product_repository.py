@@ -45,9 +45,7 @@ class ProductRepository:
                 """,
                 (sku, name, description, price, stock_quantity)
             )
-            product_id = cursor.lastrowid
-            self.conn.commit()
-            return product_id
+            return cursor.lastrowid
 
     def update(self, product_id: int, updates: dict):
         if not updates:
@@ -59,7 +57,6 @@ class ProductRepository:
         sql = f"UPDATE products SET {', '.join(fields)} WHERE id = %s"
         with self.conn.cursor() as cursor:
             cursor.execute(sql, tuple(values))
-            self.conn.commit()
 
     def update_status(self, product_id: int, is_active: bool):
         with self.conn.cursor() as cursor:
@@ -67,7 +64,6 @@ class ProductRepository:
                 "UPDATE products SET is_active = %s WHERE id = %s",
                 (is_active, product_id)
             )
-            self.conn.commit()
 
     def update_stock(self, product_id: int, new_stock: int):
         with self.conn.cursor() as cursor:
@@ -75,4 +71,3 @@ class ProductRepository:
                 "UPDATE products SET stock_quantity = %s WHERE id = %s",
                 (new_stock, product_id)
             )
-            self.conn.commit()
