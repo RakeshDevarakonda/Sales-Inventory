@@ -1,20 +1,23 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from backend.config.database import get_db_connection
+from backend.config.database import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Runs automatically when FastAPI server starts up
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Database initialization failed: {e}")
+    yield
+
 
 app = FastAPI(
     title="Sales and Inventory Management System",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
-
-# Test database connection on startup / module import
-try:
-    conn = get_db_connection()
-    with conn.cursor() as cursor:
-        cursor.execute("SELECT 1 AS status")
-    conn.close()
-    print("Database connected successfully.")
-except Exception as e:
-    print(f"Database connection error: {e}")
 
 
 @app.get("/")
