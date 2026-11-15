@@ -71,7 +71,7 @@ export const fetchCustomers = () => async (dispatch: AppDispatch) => {
 };
 
 export const createCustomer = (
-  customerData: { name: string; email: string; phone?: string; address?: string }
+  customerData: { name: string; email: string; phone: string; address: string }
 ) => async (dispatch: AppDispatch) => {
   try {
     const response = await api.post('/customers', customerData);
@@ -85,7 +85,7 @@ export const createCustomer = (
 
 export const updateCustomer = (
   id: number,
-  customerData: { name?: string; email?: string; phone?: string; address?: string }
+  customerData: { name: string; email: string; phone: string; address: string }
 ) => async (dispatch: AppDispatch) => {
   try {
     const response = await api.patch(`/customers/${id}`, customerData);

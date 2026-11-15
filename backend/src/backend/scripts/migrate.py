@@ -56,8 +56,8 @@ TABLE_DEFINITIONS = [
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         email VARCHAR(100) NOT NULL,
-        phone VARCHAR(20) NULL,
-        address TEXT NULL,
+        phone VARCHAR(10) NOT NULL,
+        address TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB;
@@ -194,6 +194,15 @@ def run_migrations():
             print("Applying table definitions...")
             for statement in TABLE_DEFINITIONS:
                 cursor.execute(statement)
+
+            # Ensure customer columns phone and address are strictly NOT NULL and phone is 10 digits in existing schemas
+            try:
+                cursor.execute("UPDATE customers SET phone = '9876543210' WHERE phone IS NULL OR phone = '' OR CHAR_LENGTH(phone) != 10;")
+                cursor.execute("UPDATE customers SET address = 'Not Provided' WHERE address IS NULL OR address = '';")
+                cursor.execute("ALTER TABLE customers MODIFY phone VARCHAR(10) NOT NULL;")
+                cursor.execute("ALTER TABLE customers MODIFY address TEXT NOT NULL;")
+            except Exception as e:
+                print(f"Notice on customers column migration: {e}")
 
             print("Applying index definitions...")
             for table_name, index_name, create_sql in INDEX_DEFINITIONS:

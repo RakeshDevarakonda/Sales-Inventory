@@ -50,8 +50,8 @@ def seed_database():
                     """
                     INSERT INTO users (username, email, phone, password_hash, role)
                     VALUES 
-                        ('manager', 'manager@salesinventory.com', '1234567890', %s, 'MANAGER'),
-                        ('salesrep', 'sales@salesinventory.com', '0987654321', %s, 'SALES_REP');
+                        ('manager', 'rakeshdevarakonda2000@gmail.com', '9515147103', %s, 'MANAGER'),
+                        ('salesrep', 'rakeshdevarakonda200@gmail.com', '9951255476', %s, 'SALES_REP');
                     """,
                     (default_manager_pwd, default_sales_pwd)
                 )
@@ -66,9 +66,9 @@ def seed_database():
                     """
                     INSERT INTO customers (name, email, phone, address)
                     VALUES 
-                        ('Acme Enterprises', 'purchasing@acme.com', '+1-555-0100', '100 Industrial Parkway, Chicago, IL'),
-                        ('Apex Retailers', 'orders@apexretail.com', '+1-555-0144', '452 Marketplace Blvd, Dallas, TX'),
-                        ('Horizon Tech Corp', 'vendor@horizontech.com', '+1-555-0188', '789 Silicon Ave, Austin, TX');
+                        ('Acme Enterprises', 'purchasing@acme.com', '9876543210', '100 Industrial Parkway, Chicago, IL'),
+                        ('Apex Retailers', 'orders@apexretail.com', '9876543211', '452 Marketplace Blvd, Dallas, TX'),
+                        ('Horizon Tech Corp', 'vendor@horizontech.com', '9876543212', '789 Silicon Ave, Austin, TX');
                     """
                 )
                 print(" -> Seeded 3 sample customers: Acme Enterprises, Apex Retailers, Horizon Tech Corp")

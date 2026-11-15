@@ -40,12 +40,23 @@ export default function Customers() {
     e.preventDefault();
     setActionError(null);
 
+    if (!name.trim() || !email.trim() || !phone.trim() || !address.trim()) {
+      setActionError('All fields (Full Name, Email, Phone, Address) are mandatory.');
+      return;
+    }
+
+    const cleanPhone = phone.trim().replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      setActionError('Phone number must be exactly 10 digits.');
+      return;
+    }
+
     const result = await dispatch(
       createCustomer({
-        name,
-        email,
-        phone: phone || undefined,
-        address: address || undefined,
+        name: name.trim(),
+        email: email.trim(),
+        phone: cleanPhone,
+        address: address.trim(),
       })
     );
 
@@ -72,12 +83,23 @@ export default function Customers() {
     setActionError(null);
     if (!selectedCustomer) return;
 
+    if (!name.trim() || !email.trim() || !phone.trim() || !address.trim()) {
+      setActionError('All fields (Full Name, Email, Phone, Address) are mandatory.');
+      return;
+    }
+
+    const cleanPhone = phone.trim().replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      setActionError('Phone number must be exactly 10 digits.');
+      return;
+    }
+
     const result = await dispatch(
       updateCustomer(selectedCustomer.id, {
-        name,
-        email,
-        phone: phone || undefined,
-        address: address || undefined,
+        name: name.trim(),
+        email: email.trim(),
+        phone: cleanPhone,
+        address: address.trim(),
       })
     );
 
@@ -255,7 +277,9 @@ export default function Customers() {
 
             <form onSubmit={handleCreateCustomer} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Full Name <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
                   required
@@ -267,7 +291,9 @@ export default function Customers() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Email Address <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="email"
                   required
@@ -280,24 +306,31 @@ export default function Customers() {
 
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Phone</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Phone (10 digits) <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="tel"
+                    required
+                    maxLength={10}
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+1 555-0199"
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="9876543210"
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Address</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Address <span className="text-rose-500">*</span>
+                </label>
                 <textarea
                   rows={2}
+                  required
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Billing / delivery address..."
+                  placeholder="Full billing or delivery address..."
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
                 />
               </div>
@@ -337,7 +370,9 @@ export default function Customers() {
 
             <form onSubmit={handleUpdateCustomer} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Full Name <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
                   required
@@ -348,7 +383,9 @@ export default function Customers() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Email Address <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="email"
                   required
@@ -360,20 +397,28 @@ export default function Customers() {
 
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Phone</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Phone (10 digits) <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="tel"
+                    required
+                    maxLength={10}
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="9876543210"
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Address</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Address <span className="text-rose-500">*</span>
+                </label>
                 <textarea
                   rows={2}
+                  required
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
