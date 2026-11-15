@@ -1,12 +1,11 @@
 from fastapi import HTTPException, Request, Response, status
-from backend.config.settings import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS, ENVIRONMENT
+from backend.config.settings import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 from backend.schemas.auth import UserRegister, UserLogin, RefreshTokenRequest, ChangePasswordRequest
 from backend.services.user_service import UserService
 
-# In production (cross-origin between vercel.app and render.com), cookies require SameSite=None and Secure=True
-IS_PROD = ENVIRONMENT.lower() in ("production", "prod")
-COOKIE_SAMESITE = "none" if IS_PROD else "lax"
-COOKIE_SECURE = True if IS_PROD else False
+# Cross-origin HTTPS cookies between frontend and backend require SameSite=None and Secure=True
+COOKIE_SAMESITE = "none"
+COOKIE_SECURE = True
 
 
 class AuthHandler:

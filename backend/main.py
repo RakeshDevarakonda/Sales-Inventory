@@ -27,7 +27,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Register CORS Middleware from ENV
+# Register CORS Middleware dynamically from CORS_ORIGINS environment variable
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
