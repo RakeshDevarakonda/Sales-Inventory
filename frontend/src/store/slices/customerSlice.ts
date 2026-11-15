@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import api from '../../api/client';
 import { Customer } from '../../types';
 import { AppDispatch } from '../index';
+import { getErrorMessage } from '../../utils/errors';
 
 interface CustomerState {
   items: Customer[];
@@ -63,35 +64,35 @@ export const fetchCustomers = () => async (dispatch: AppDispatch) => {
     dispatch(setCustomers(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to fetch customers';
+    const msg = getErrorMessage(err, 'Failed to fetch customers');
     dispatch(setError(msg));
     return { success: false, error: msg };
   }
 };
 
 export const createCustomer = (
-  customerData: { name: string; email: string; phone?: string; company_name?: string; address?: string }
+  customerData: { name: string; email: string; phone?: string; address?: string }
 ) => async (dispatch: AppDispatch) => {
   try {
     const response = await api.post('/customers', customerData);
     dispatch(addCustomer(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to create customer';
+    const msg = getErrorMessage(err, 'Failed to create customer');
     return { success: false, error: msg };
   }
 };
 
 export const updateCustomer = (
   id: number,
-  customerData: { name?: string; email?: string; phone?: string; company_name?: string; address?: string }
+  customerData: { name?: string; email?: string; phone?: string; address?: string }
 ) => async (dispatch: AppDispatch) => {
   try {
     const response = await api.patch(`/customers/${id}`, customerData);
     dispatch(updateCustomerInList(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to update customer';
+    const msg = getErrorMessage(err, 'Failed to update customer');
     return { success: false, error: msg };
   }
 };
@@ -102,7 +103,7 @@ export const deleteCustomer = (id: number) => async (dispatch: AppDispatch) => {
     dispatch(removeCustomerFromList(id));
     return { success: true, id };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to delete customer';
+    const msg = getErrorMessage(err, 'Failed to delete customer');
     return { success: false, error: msg };
   }
 };

@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import api from '../../api/client';
 import { Order } from '../../types';
 import { AppDispatch } from '../index';
+import { getErrorMessage } from '../../utils/errors';
 
 interface OrderState {
   items: Order[];
@@ -72,7 +73,7 @@ export const fetchOrders = (statusFilter: string | null = null) => async (dispat
     dispatch(setOrders(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to fetch orders';
+    const msg = getErrorMessage(err, 'Failed to fetch orders');
     dispatch(setError(msg));
     return { success: false, error: msg };
   }
@@ -86,7 +87,7 @@ export const createOrder = (
     dispatch(addOrder(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to place order';
+    const msg = getErrorMessage(err, 'Failed to place order');
     return { success: false, error: msg };
   }
 };
@@ -99,7 +100,7 @@ export const approveOrder = (
     dispatch(updateOrderInList(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to approve order';
+    const msg = getErrorMessage(err, 'Failed to approve order');
     return { success: false, error: msg };
   }
 };
@@ -112,7 +113,7 @@ export const rejectOrder = (
     dispatch(updateOrderInList(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to reject order';
+    const msg = getErrorMessage(err, 'Failed to reject order');
     return { success: false, error: msg };
   }
 };
@@ -123,7 +124,7 @@ export const cancelOrder = (id: number) => async (dispatch: AppDispatch) => {
     dispatch(markCancelled(id));
     return { success: true, id };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to cancel order';
+    const msg = getErrorMessage(err, 'Failed to cancel order');
     return { success: false, error: msg };
   }
 };

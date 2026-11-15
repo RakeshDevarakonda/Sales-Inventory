@@ -7,6 +7,7 @@ from backend.repositories.order_repository import OrderRepository
 from backend.repositories.product_repository import ProductRepository
 from backend.repositories.customer_repository import CustomerRepository
 from backend.repositories.user_repository import UserRepository
+from backend.repositories.settings_repository import SettingsRepository
 from backend.schemas.order import OrderCreate, OrderUpdate, OrderApprovalAction
 from backend.services.email_service import email_service
 
@@ -24,6 +25,7 @@ class OrderService:
         self.product_repo = ProductRepository(conn)
         self.customer_repo = CustomerRepository(conn)
         self.user_repo = UserRepository(conn)
+        self.settings_repo = SettingsRepository(conn)
 
     def get_orders(self, current_user: dict):
         if current_user["role"] == "MANAGER":
@@ -81,7 +83,13 @@ class OrderService:
                     "subtotal": subtotal
                 })
 
-            requires_approval = total_amount > APPROVAL_THRESHOLD
+            # Dynamic threshold (default ₹1000 from settings, or customized in DB by manager)
+            current_threshold = self.settings_repo.get_approval_threshold()
+
+            # Only Sales Rep orders over the threshold require Manager approval.
+            # If a Manager places the order, it is directly CONFIRMED (no self-approval needed).
+            is_manager = current_user.get("role") == "MANAGER"
+            requires_approval = (total_amount > current_threshold) and (not is_manager)
             status_val = "PENDING_APPROVAL" if requires_approval else "CONFIRMED"
 
             order_number = generate_order_number()

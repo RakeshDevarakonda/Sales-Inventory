@@ -124,6 +124,17 @@ TABLE_DEFINITIONS = [
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB;
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key VARCHAR(50) PRIMARY KEY,
+        setting_value VARCHAR(255) NOT NULL,
+        description VARCHAR(255) NULL,
+        updated_by_id INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (updated_by_id) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB;
     """
 ]
 

@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import api from '../../api/client';
 import { Product, StockAdjustment } from '../../types';
 import { AppDispatch } from '../index';
+import { getErrorMessage } from '../../utils/errors';
 
 interface ProductState {
   items: Product[];
@@ -72,7 +73,7 @@ export const fetchProducts = (activeOnly: boolean = false) => async (dispatch: A
     dispatch(setProducts(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to fetch products';
+    const msg = getErrorMessage(err, 'Failed to fetch products');
     dispatch(setError(msg));
     return { success: false, error: msg };
   }
@@ -87,7 +88,7 @@ export const createProduct = (
     dispatch(addProduct(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to create product';
+    const msg = getErrorMessage(err, 'Failed to create product');
     return { success: false, error: msg };
   }
 };
@@ -102,7 +103,7 @@ export const updateProduct = (
     dispatch(updateProductInList(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to update product';
+    const msg = getErrorMessage(err, 'Failed to update product');
     return { success: false, error: msg };
   }
 };
@@ -117,7 +118,7 @@ export const toggleProductStatus = (
     dispatch(updateProductInList(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to toggle product status';
+    const msg = getErrorMessage(err, 'Failed to toggle product status');
     return { success: false, error: msg };
   }
 };
@@ -131,7 +132,7 @@ export const adjustStock = (
     dispatch(updateProductStock(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Failed to adjust stock';
+    const msg = getErrorMessage(err, 'Failed to adjust stock');
     return { success: false, error: msg };
   }
 };

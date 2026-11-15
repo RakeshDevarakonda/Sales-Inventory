@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import api from '../../api/client';
 import { User } from '../../types';
 import { AppDispatch } from '../index';
+import { getErrorMessage } from '../../utils/errors';
 
 interface AuthState {
   user: User | null;
@@ -75,7 +76,7 @@ export const login = (credentials: { username_or_email: string; password: string
     dispatch(loginSuccess(user));
     return { success: true, user };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Login failed';
+    const msg = getErrorMessage(err, 'Login failed');
     dispatch(setError(msg));
     dispatch(setLoading(false));
     return { success: false, error: msg };
@@ -90,7 +91,7 @@ export const register = (userData: { username: string; email: string; password: 
     dispatch(setLoading(false));
     return { success: true, data: response.data };
   } catch (err: any) {
-    const msg = err.response?.data?.detail || 'Registration failed';
+    const msg = getErrorMessage(err, 'Registration failed');
     dispatch(setError(msg));
     dispatch(setLoading(false));
     return { success: false, error: msg };
