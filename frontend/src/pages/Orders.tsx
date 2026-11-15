@@ -21,7 +21,7 @@ import { Link } from 'react-router-dom';
 
 export default function Orders() {
   const dispatch = useAppDispatch();
-  const { items: orders, total, page, pageSize, totalPages, loading, error } = useAppSelector((state) => state.orders);
+  const { items: orders, total, page, limit, totalPages, loading, error } = useAppSelector((state) => state.orders);
   const { user } = useAppSelector((state) => state.auth);
 
   const [statusFilter, setStatusFilter] = useState<string>('');

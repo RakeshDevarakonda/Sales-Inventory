@@ -24,7 +24,7 @@ import {
 
 export default function Products() {
   const dispatch = useAppDispatch();
-  const { items: products, total, page, pageSize, totalPages, loading, error } = useAppSelector((state) => state.products);
+  const { items: products, total, page, limit, totalPages, loading, error } = useAppSelector((state) => state.products);
   const { user } = useAppSelector((state) => state.auth);
 
   const [currentPage, setCurrentPage] = useState<number>(1);

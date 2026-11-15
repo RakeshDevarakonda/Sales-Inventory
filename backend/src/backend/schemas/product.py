@@ -13,6 +13,7 @@ class ProductCreate(BaseModel):
 
 
 class ProductUpdate(BaseModel):
+    sku: Optional[str] = Field(None, min_length=2, max_length=50)
     name: Optional[str] = Field(None, min_length=1, max_length=150)
     description: Optional[str] = None
     price: Optional[Decimal] = Field(None, ge=0)

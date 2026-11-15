@@ -20,7 +20,7 @@ import {
 
 export default function Customers() {
   const dispatch = useAppDispatch();
-  const { items: customers, total, page, pageSize, totalPages, loading, error } = useAppSelector((state) => state.customers);
+  const { items: customers, total, page, limit, totalPages, loading, error } = useAppSelector((state) => state.customers);
   const { user } = useAppSelector((state) => state.auth);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
