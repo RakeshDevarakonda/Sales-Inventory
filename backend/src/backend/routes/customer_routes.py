@@ -34,7 +34,7 @@ def get_customer_by_id(
     return CustomerHandler(conn).get_customer_by_id(customer_id)
 
 
-@router.put("/{customer_id}", response_model=CustomerOut)
+@router.patch("/{customer_id}", response_model=CustomerOut)
 def update_customer(
     customer_id: int,
     customer_data: CustomerUpdate,

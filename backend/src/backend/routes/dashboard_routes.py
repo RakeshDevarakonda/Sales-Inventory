@@ -7,7 +7,6 @@ from backend.utils.security import get_current_user
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard & Analytics"])
 
 
-@router.get("/stats", response_model=DashboardStatsOut)
 @router.get("/summary", response_model=DashboardStatsOut)
 def get_dashboard_stats(
     conn=Depends(get_db),

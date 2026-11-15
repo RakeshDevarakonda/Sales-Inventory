@@ -1,7 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchProducts, createProduct, adjustStock } from '../store/slices/productSlice';
-import { Plus, AlertCircle, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import {
+  fetchProducts,
+  createProduct,
+  updateProduct,
+  toggleProductStatus,
+  adjustStock,
+} from '../store/slices/productSlice';
+import {
+  Package,
+  Plus,
+  AlertCircle,
+  RefreshCw,
+  SlidersHorizontal,
+  Edit2,
+  CheckCircle,
+  XCircle,
+  Check,
+} from 'lucide-react';
 
 export default function Products() {
   const dispatch = useAppDispatch();
@@ -9,6 +25,7 @@ export default function Products() {
   const { user } = useAppSelector((state) => state.auth);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
@@ -18,6 +35,12 @@ export default function Products() {
   const [newPrice, setNewPrice] = useState('');
   const [newStock, setNewStock] = useState('0');
   const [newDesc, setNewDesc] = useState('');
+
+  // Edit product form
+  const [editName, setEditName] = useState('');
+  const [editSku, setEditSku] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editDesc, setEditDesc] = useState('');
 
   // Stock adjust form
   const [adjustQty, setAdjustQty] = useState('');
@@ -48,6 +71,48 @@ export default function Products() {
       setNewDesc('');
     } else {
       setActionError(result.error || 'Failed to create product');
+    }
+  };
+
+  const handleOpenEdit = (product: any) => {
+    setSelectedProduct(product);
+    setEditName(product.name);
+    setEditSku(product.sku);
+    setEditPrice(String(product.price));
+    setEditDesc(product.description || '');
+    setActionError(null);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionError(null);
+    if (!selectedProduct) return;
+
+    const result = await dispatch(
+      updateProduct(selectedProduct.id, {
+        name: editName,
+        sku: editSku,
+        price: parseFloat(editPrice),
+        description: editDesc || undefined,
+      })
+    );
+
+    if (result.success) {
+      setShowEditModal(false);
+      setSelectedProduct(null);
+    } else {
+      setActionError(result.error || 'Failed to update product');
+    }
+  };
+
+  const handleToggleStatus = async (product: any) => {
+    const nextStatus = !product.is_active;
+    const confirmMsg = nextStatus
+      ? `Activate product "${product.name}"?`
+      : `Deactivate product "${product.name}"? Inactive products cannot be added to new sales orders.`;
+    if (window.confirm(confirmMsg)) {
+      await dispatch(toggleProductStatus(product.id, nextStatus));
     }
   };
 
@@ -167,28 +232,60 @@ export default function Products() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium ${
-                            product.is_active ? 'bg-slate-100 text-slate-700' : 'bg-slate-200 text-slate-400'
+                        <button
+                          type="button"
+                          onClick={() => user?.role === 'MANAGER' && handleToggleStatus(product)}
+                          disabled={user?.role !== 'MANAGER'}
+                          title={user?.role === 'MANAGER' ? 'Click to toggle status' : undefined}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold border transition-all ${
+                            user?.role === 'MANAGER' ? 'cursor-pointer hover:opacity-80' : 'cursor-default'
+                          } ${
+                            product.is_active
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-slate-100 text-slate-500 border-slate-300'
                           }`}
                         >
-                          {product.is_active ? 'Active' : 'Inactive'}
-                        </span>
+                          {product.is_active ? (
+                            <>
+                              <CheckCircle className="w-3 h-3 text-emerald-600" />
+                              <span>Active</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-3 h-3 text-slate-400" />
+                              <span>Inactive</span>
+                            </>
+                          )}
+                        </button>
                       </td>
                       {user?.role === 'MANAGER' && (
                         <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => {
-                              setSelectedProduct(product);
-                              setAdjustQty('');
-                              setActionError(null);
-                              setShowAdjustModal(true);
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <SlidersHorizontal className="w-3.5 h-3.5" />
-                            <span>Adjust Stock</span>
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Edit Price / Info */}
+                            <button
+                              onClick={() => handleOpenEdit(product)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                              title="Edit product info and price"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Edit</span>
+                            </button>
+
+                            {/* Adjust Stock */}
+                            <button
+                              onClick={() => {
+                                setSelectedProduct(product);
+                                setAdjustQty('');
+                                setActionError(null);
+                                setShowAdjustModal(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+                              title="Adjust stock quantity"
+                            >
+                              <SlidersHorizontal className="w-3.5 h-3.5" />
+                              <span>Stock</span>
+                            </button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -286,6 +383,80 @@ export default function Products() {
         </div>
       )}
 
+      {/* Edit Product Modal (Manager Only - Update name, SKU, price, desc) */}
+      {showEditModal && selectedProduct && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Edit Product</h3>
+            <p className="text-xs text-slate-500 mb-4">Update product information or adjust unit pricing</p>
+            {actionError && (
+              <div className="mb-4 p-3 bg-rose-50 text-rose-700 text-xs rounded-lg border border-rose-200">
+                {actionError}
+              </div>
+            )}
+            <form onSubmit={handleUpdateProduct} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">SKU</label>
+                  <input
+                    type="text"
+                    required
+                    value={editSku}
+                    onChange={(e) => setEditSku(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Price ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editPrice}
+                    onChange={(e) => setEditPrice(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs cursor-pointer"
+                >
+                  Update Product
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Adjust Stock Modal */}
       {showAdjustModal && selectedProduct && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
@@ -313,7 +484,7 @@ export default function Products() {
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <span className="text-[11px] text-slate-400 mt-1 block">
-                  Executed with exclusive database row locking to prevent race conditions.
+                  Uses SELECT ... FOR UPDATE to eliminate concurrency race conditions.
                 </span>
               </div>
               <div className="flex justify-end gap-2 pt-2">

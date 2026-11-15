@@ -62,7 +62,7 @@ export const {
   updateProductStock,
 } = productSlice.actions;
 
-// Thunks using standard reducers
+// Fetch all products
 export const fetchProducts = (activeOnly: boolean = false) => async (dispatch: AppDispatch) => {
   dispatch(setLoading(true));
   dispatch(setError(null));
@@ -78,6 +78,7 @@ export const fetchProducts = (activeOnly: boolean = false) => async (dispatch: A
   }
 };
 
+// Create product (Manager only)
 export const createProduct = (
   productData: { name: string; sku: string; price: number; stock_quantity: number; description?: string }
 ) => async (dispatch: AppDispatch) => {
@@ -91,12 +92,13 @@ export const createProduct = (
   }
 };
 
+// Full edit product (name, price, sku, description)
 export const updateProduct = (
   id: number,
   data: Partial<Product>
 ) => async (dispatch: AppDispatch) => {
   try {
-    const response = await api.put(`/products/${id}`, data);
+    const response = await api.patch(`/products/${id}`, data);
     dispatch(updateProductInList(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {
@@ -105,11 +107,27 @@ export const updateProduct = (
   }
 };
 
+// Toggle active/inactive status
+export const toggleProductStatus = (
+  id: number,
+  is_active: boolean
+) => async (dispatch: AppDispatch) => {
+  try {
+    const response = await api.patch(`/products/${id}/status`, { is_active });
+    dispatch(updateProductInList(response.data));
+    return { success: true, data: response.data };
+  } catch (err: any) {
+    const msg = err.response?.data?.detail || 'Failed to toggle product status';
+    return { success: false, error: msg };
+  }
+};
+
+// Adjust stock via /inventory/adjustments
 export const adjustStock = (
   adjustmentData: { product_id: number; change_quantity: number }
 ) => async (dispatch: AppDispatch) => {
   try {
-    const response = await api.post('/inventory/adjust', adjustmentData);
+    const response = await api.post('/inventory/adjustments', adjustmentData);
     dispatch(updateProductStock(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {

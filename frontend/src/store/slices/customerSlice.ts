@@ -34,10 +34,26 @@ const customerSlice = createSlice({
     addCustomer: (state, action: PayloadAction<Customer>) => {
       state.items.unshift(action.payload);
     },
+    updateCustomerInList: (state, action: PayloadAction<Customer>) => {
+      const index = state.items.findIndex((c) => c.id === action.payload.id);
+      if (index !== -1) {
+        state.items[index] = action.payload;
+      }
+    },
+    removeCustomerFromList: (state, action: PayloadAction<number>) => {
+      state.items = state.items.filter((c) => c.id !== action.payload);
+    },
   },
 });
 
-export const { setLoading, setError, setCustomers, addCustomer } = customerSlice.actions;
+export const {
+  setLoading,
+  setError,
+  setCustomers,
+  addCustomer,
+  updateCustomerInList,
+  removeCustomerFromList,
+} = customerSlice.actions;
 
 export const fetchCustomers = () => async (dispatch: AppDispatch) => {
   dispatch(setLoading(true));
@@ -62,6 +78,31 @@ export const createCustomer = (
     return { success: true, data: response.data };
   } catch (err: any) {
     const msg = err.response?.data?.detail || 'Failed to create customer';
+    return { success: false, error: msg };
+  }
+};
+
+export const updateCustomer = (
+  id: number,
+  customerData: { name?: string; email?: string; phone?: string; company_name?: string; address?: string }
+) => async (dispatch: AppDispatch) => {
+  try {
+    const response = await api.patch(`/customers/${id}`, customerData);
+    dispatch(updateCustomerInList(response.data));
+    return { success: true, data: response.data };
+  } catch (err: any) {
+    const msg = err.response?.data?.detail || 'Failed to update customer';
+    return { success: false, error: msg };
+  }
+};
+
+export const deleteCustomer = (id: number) => async (dispatch: AppDispatch) => {
+  try {
+    await api.delete(`/customers/${id}`);
+    dispatch(removeCustomerFromList(id));
+    return { success: true, id };
+  } catch (err: any) {
+    const msg = err.response?.data?.detail || 'Failed to delete customer';
     return { success: false, error: msg };
   }
 };
