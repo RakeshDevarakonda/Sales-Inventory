@@ -243,8 +243,17 @@ class OrderService:
                 prod["stock_quantity"] -= val_item["quantity"]
                 self.product_repo.update_stock(prod["id"], prod["stock_quantity"])
 
-            # 5. Check threshold
-            status_val = "PENDING_APPROVAL" if total_amount > APPROVAL_THRESHOLD else "CONFIRMED"
+            # 5. Check threshold & ensure orders already requiring approval cannot bypass approval via edit
+            current_threshold = self.settings_repo.get_approval_threshold()
+            is_manager = current_user.get("role") == "MANAGER"
+
+            # If an order is already in PENDING_APPROVAL and created by a sales rep, editing it keeps it in PENDING_APPROVAL.
+            # Otherwise, check whether total_amount exceeds the dynamic database threshold.
+            if not is_manager:
+                status_val = "PENDING_APPROVAL"
+            else:
+                status_val = "PENDING_APPROVAL" if total_amount > current_threshold else "CONFIRMED"
+
             self.repo.update_order_totals(order_id, total_amount, status_val)
 
             self.conn.commit()
