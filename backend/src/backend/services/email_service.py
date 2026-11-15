@@ -1,4 +1,5 @@
 import smtplib
+from abc import ABC, abstractmethod
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from backend.config.settings import (
@@ -11,7 +12,22 @@ from backend.config.settings import (
 )
 
 
-class EmailService:
+class INotificationService(ABC):
+    """
+    Interface Segregation Principle & Dependency Inversion:
+    Abstract notification contract allowing swapping SMTP for SES/SendGrid/Twilio.
+    """
+
+    @abstractmethod
+    def send_order_pending_approval_notice(self, order_number: str, total_amount, sales_rep_name: str, manager_email: str = None):
+        pass
+
+    @abstractmethod
+    def send_order_decision_notice(self, sales_rep_email: str, order_number: str, decision: str, notes: str = None):
+        pass
+
+
+class EmailService(INotificationService):
     def __init__(self):
         self.mail_server = MAIL_SERVER
         self.mail_port = MAIL_PORT

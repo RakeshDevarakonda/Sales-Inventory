@@ -1,8 +1,12 @@
-class CustomerRepository:
+from typing import Optional, List, Dict, Any
+from backend.repositories.base_repository import IBaseRepository
+
+
+class CustomerRepository(IBaseRepository):
     def __init__(self, conn):
         self.conn = conn
 
-    def find_by_id(self, customer_id: int):
+    def find_by_id(self, customer_id: int) -> Optional[Dict[str, Any]]:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """

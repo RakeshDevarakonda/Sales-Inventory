@@ -1,6 +1,13 @@
-class OrderRepository:
+from typing import Optional, List, Dict, Any
+from backend.repositories.base_repository import IBaseRepository
+
+
+class OrderRepository(IBaseRepository):
     def __init__(self, conn):
         self.conn = conn
+
+    def find_by_id(self, order_id: int) -> Optional[Dict[str, Any]]:
+        return self.get_by_id(order_id)
 
     def get_all(self):
         with self.conn.cursor() as cursor:

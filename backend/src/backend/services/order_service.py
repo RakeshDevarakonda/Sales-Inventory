@@ -19,13 +19,23 @@ def generate_order_number() -> str:
 
 
 class OrderService:
-    def __init__(self, conn):
+    def __init__(
+        self,
+        conn,
+        repo: OrderRepository = None,
+        product_repo: ProductRepository = None,
+        customer_repo: CustomerRepository = None,
+        user_repo: UserRepository = None,
+        settings_repo: SettingsRepository = None,
+        notification_svc = None
+    ):
         self.conn = conn
-        self.repo = OrderRepository(conn)
-        self.product_repo = ProductRepository(conn)
-        self.customer_repo = CustomerRepository(conn)
-        self.user_repo = UserRepository(conn)
-        self.settings_repo = SettingsRepository(conn)
+        self.repo = repo or OrderRepository(conn)
+        self.product_repo = product_repo or ProductRepository(conn)
+        self.customer_repo = customer_repo or CustomerRepository(conn)
+        self.user_repo = user_repo or UserRepository(conn)
+        self.settings_repo = settings_repo or SettingsRepository(conn)
+        self.notification_svc = notification_svc or email_service
 
     def get_orders(self, current_user: dict):
         if current_user["role"] == "MANAGER":
@@ -122,7 +132,7 @@ class OrderService:
 
             if requires_approval and email_queue:
                 email_queue.add_task(
-                    email_service.send_order_pending_approval_notice,
+                    self.notification_svc.send_order_pending_approval_notice,
                     order_number=order_number,
                     total_amount=total_amount,
                     sales_rep_name=current_user.get("username", "Sales Rep")
@@ -265,7 +275,7 @@ class OrderService:
             rep_user = self.user_repo.find_by_id(order["created_by_id"])
             if rep_user and email_queue:
                 email_queue.add_task(
-                    email_service.send_order_decision_notice,
+                    self.notification_svc.send_order_decision_notice,
                     sales_rep_email=rep_user["email"],
                     order_number=order["order_number"],
                     decision="APPROVED",
@@ -304,7 +314,7 @@ class OrderService:
             rep_user = self.user_repo.find_by_id(order["created_by_id"])
             if rep_user and email_queue:
                 email_queue.add_task(
-                    email_service.send_order_decision_notice,
+                    self.notification_svc.send_order_decision_notice,
                     sales_rep_email=rep_user["email"],
                     order_number=order["order_number"],
                     decision="REJECTED",
