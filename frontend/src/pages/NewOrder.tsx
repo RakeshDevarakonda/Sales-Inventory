@@ -39,7 +39,6 @@ export default function NewOrder() {
   useEffect(() => {
     dispatch(fetchCustomers());
     dispatch(fetchProducts(true)); // only active products
-    dispatch(fetchApprovalThreshold());
   }, [dispatch]);
 
   const handleAddItem = () => {

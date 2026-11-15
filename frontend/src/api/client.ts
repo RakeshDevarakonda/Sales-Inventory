@@ -35,11 +35,13 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-    // Do not attempt refresh on login or refresh itself
+    // Do not attempt refresh on login, register, me (handled by checkAuth), or refresh itself
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
       !originalRequest.url?.includes('/auth/login') &&
+      !originalRequest.url?.includes('/auth/register') &&
+      !originalRequest.url?.includes('/auth/me') &&
       !originalRequest.url?.includes('/auth/refresh')
     ) {
       if (isRefreshing) {

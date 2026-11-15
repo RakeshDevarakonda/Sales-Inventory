@@ -98,20 +98,21 @@ export const register = (userData: { username: string; email: string; password: 
   }
 };
 
-// CheckAuth: Restores user session via HttpOnly cookies (tries /auth/me, then /auth/refresh)
+// CheckAuth: Restores user session via HttpOnly cookies using single-responsibility check
 export const checkAuth = () => async (dispatch: AppDispatch) => {
   dispatch(setInitializing(true));
   try {
-    // 1. If access_token cookie is valid, /auth/me succeeds immediately
+    // 1. Check if an active session exists via access_token cookie
     const meRes = await api.get('/auth/me');
     dispatch(loginSuccess(meRes.data));
   } catch {
-    // 2. If access_token is expired, attempt silent refresh via refresh_token cookie
+    // 2. If access_token is expired or absent, attempt silent refresh via refresh_token cookie
     try {
       await api.post('/auth/refresh');
       const retryMe = await api.get('/auth/me');
       dispatch(loginSuccess(retryMe.data));
     } catch {
+      // No active session or refresh expired
       dispatch(logoutSuccess());
     }
   } finally {
