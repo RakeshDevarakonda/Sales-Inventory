@@ -49,20 +49,9 @@ class ProductService:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     def update(self, product_id: int, data: ProductUpdate):
-        current_product = self.get_by_id(product_id)
-
-        # Validate SKU uniqueness if SKU is being updated
-        if data.sku is not None and data.sku != current_product["sku"]:
-            existing_sku = self.repo.find_by_sku(data.sku, exclude_id=product_id)
-            if existing_sku:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Product with SKU '{data.sku}' already exists"
-                )
+        self.get_by_id(product_id)
 
         updates = {}
-        if data.sku is not None:
-            updates["sku"] = data.sku
         if data.name is not None:
             updates["name"] = data.name
         if data.description is not None:
