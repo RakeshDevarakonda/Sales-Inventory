@@ -1,8 +1,8 @@
 from typing import Optional, List, Dict, Any
-from backend.repositories.base_repository import IBaseRepository
+from backend.repositories.base_repository import IReadOnlyRepository
 
 
-class OrderRepository(IBaseRepository):
+class OrderRepository(IReadOnlyRepository):
     def __init__(self, conn):
         self.conn = conn
 

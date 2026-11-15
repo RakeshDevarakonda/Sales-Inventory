@@ -3,10 +3,10 @@ from typing import Generic, TypeVar, Optional, List, Dict, Any
 
 T = TypeVar("T")
 
-class IBaseRepository(ABC, Generic[T]):
+class IReadOnlyRepository(ABC, Generic[T]):
     """
-    Interface Segregation & Liskov Substitution Principle:
-    Base contract for all entity repositories.
+    Interface Segregation Principle:
+    Separate contract for read operations. Not every entity (e.g. Orders) allows hard deletion.
     """
 
     @abstractmethod
@@ -16,6 +16,13 @@ class IBaseRepository(ABC, Generic[T]):
     @abstractmethod
     def get_all(self) -> List[Dict[str, Any]]:
         pass
+
+
+class IDeletableRepository(ABC):
+    """
+    Interface Segregation Principle:
+    Only entities that support physical deletion implement this interface.
+    """
 
     @abstractmethod
     def delete(self, entity_id: int) -> bool:
