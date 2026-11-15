@@ -77,7 +77,10 @@ class UserOut(BaseModel):
     updated_at: datetime
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+class LoginResponse(BaseModel):
+    message: str = "Login successful"
     user: UserOut
+
+
+class RefreshResponse(BaseModel):
+    message: str = "Token refreshed successfully"

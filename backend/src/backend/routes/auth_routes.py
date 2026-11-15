@@ -3,7 +3,8 @@ from backend.config.database import get_db
 from backend.schemas.auth import (
     UserRegister,
     UserLogin,
-    TokenResponse,
+    LoginResponse,
+    RefreshResponse,
     UserOut,
     RefreshTokenRequest,
     ChangePasswordRequest
@@ -19,7 +20,7 @@ def register(user_data: UserRegister, conn=Depends(get_db)):
     return AuthHandler(conn).register(user_data)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=LoginResponse)
 def login(credentials: UserLogin, response: Response, conn=Depends(get_db)):
     return AuthHandler(conn).login(credentials, response)
 
@@ -34,7 +35,7 @@ def get_me(current_user=Depends(get_current_user), conn=Depends(get_db)):
     return AuthHandler(conn).get_me(current_user)
 
 
-@router.post("/refresh")
+@router.post("/refresh", response_model=RefreshResponse)
 def refresh_token(request: Request, response: Response, body: RefreshTokenRequest = None, conn=Depends(get_db)):
     return AuthHandler(conn).refresh_token(request, response, body)
 

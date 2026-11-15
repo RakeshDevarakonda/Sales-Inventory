@@ -34,9 +34,9 @@ class AuthHandler:
             max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
         )
 
+        # Do NOT return tokens in response body; cookies store them securely
         return {
-            "access_token": result["access_token"],
-            "token_type": "bearer",
+            "message": "Login successful",
             "user": result["user"]
         }
 
@@ -74,8 +74,7 @@ class AuthHandler:
         )
 
         return {
-            "access_token": result["access_token"],
-            "token_type": "bearer"
+            "message": "Token refreshed successfully"
         }
 
     def change_password(self, current_user: dict, data: ChangePasswordRequest, response: Response):
