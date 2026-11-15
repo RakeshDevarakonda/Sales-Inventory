@@ -9,10 +9,36 @@ class OrderRepository(IReadOnlyRepository):
     def find_by_id(self, order_id: int) -> Optional[Dict[str, Any]]:
         return self.get_by_id(order_id)
 
-    def get_all(self):
+    def get_all(self, status: str = None, page: int = None, limit: int = None):
         with self.conn.cursor() as cursor:
+            where_sql = "WHERE o.status = %s" if status else ""
+            params = (status,) if status else ()
+
+            if page and limit:
+                offset = (page - 1) * limit
+                cursor.execute(f"SELECT COUNT(1) AS total FROM orders o {where_sql};", params)
+                total = cursor.fetchone()["total"]
+
+                query_params = (*params, limit, offset)
+                cursor.execute(
+                    f"""
+                    SELECT o.id, o.order_number, o.customer_id, c.name AS customer_name,
+                           o.created_by_id, u.username AS created_by_username,
+                           o.total_amount, o.status, o.reviewed_by_id, o.reviewed_at,
+                           o.approval_notes, o.created_at, o.updated_at
+                    FROM orders o
+                    JOIN customers c ON o.customer_id = c.id
+                    JOIN users u ON o.created_by_id = u.id
+                    {where_sql}
+                    ORDER BY o.id DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    query_params
+                )
+                return {"items": cursor.fetchall(), "total": total}
+
             cursor.execute(
-                """
+                f"""
                 SELECT o.id, o.order_number, o.customer_id, c.name AS customer_name,
                        o.created_by_id, u.username AS created_by_username,
                        o.total_amount, o.status, o.reviewed_by_id, o.reviewed_at,
@@ -20,15 +46,46 @@ class OrderRepository(IReadOnlyRepository):
                 FROM orders o
                 JOIN customers c ON o.customer_id = c.id
                 JOIN users u ON o.created_by_id = u.id
+                {where_sql}
                 ORDER BY o.id DESC
-                """
+                """,
+                params
             )
             return cursor.fetchall()
 
-    def get_by_user_id(self, user_id: int):
+    def get_by_user_id(self, user_id: int, status: str = None, page: int = None, limit: int = None):
         with self.conn.cursor() as cursor:
+            where_sql = "WHERE o.created_by_id = %s"
+            params = [user_id]
+            if status:
+                where_sql += " AND o.status = %s"
+                params.append(status)
+
+            if page and limit:
+                offset = (page - 1) * limit
+                cursor.execute(f"SELECT COUNT(1) AS total FROM orders o {where_sql};", tuple(params))
+                total = cursor.fetchone()["total"]
+
+                query_params = (*params, limit, offset)
+                cursor.execute(
+                    f"""
+                    SELECT o.id, o.order_number, o.customer_id, c.name AS customer_name,
+                           o.created_by_id, u.username AS created_by_username,
+                           o.total_amount, o.status, o.reviewed_by_id, o.reviewed_at,
+                           o.approval_notes, o.created_at, o.updated_at
+                    FROM orders o
+                    JOIN customers c ON o.customer_id = c.id
+                    JOIN users u ON o.created_by_id = u.id
+                    {where_sql}
+                    ORDER BY o.id DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    query_params
+                )
+                return {"items": cursor.fetchall(), "total": total}
+
             cursor.execute(
-                """
+                f"""
                 SELECT o.id, o.order_number, o.customer_id, c.name AS customer_name,
                        o.created_by_id, u.username AS created_by_username,
                        o.total_amount, o.status, o.reviewed_by_id, o.reviewed_at,
@@ -36,10 +93,10 @@ class OrderRepository(IReadOnlyRepository):
                 FROM orders o
                 JOIN customers c ON o.customer_id = c.id
                 JOIN users u ON o.created_by_id = u.id
-                WHERE o.created_by_id = %s
+                {where_sql}
                 ORDER BY o.id DESC
                 """,
-                (user_id,)
+                tuple(params)
             )
             return cursor.fetchall()
 

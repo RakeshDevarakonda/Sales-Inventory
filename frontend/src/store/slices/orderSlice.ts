@@ -6,12 +6,20 @@ import { getErrorMessage } from '../../utils/errors';
 
 interface OrderState {
   items: Order[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
   loading: boolean;
   error: string | null;
 }
 
 const initialState: OrderState = {
   items: [],
+  total: 0,
+  page: 1,
+  limit: 10,
+  totalPages: 1,
   loading: false,
   error: null,
 };
@@ -30,8 +38,18 @@ const orderSlice = createSlice({
     clearOrderError: (state) => {
       state.error = null;
     },
-    setOrders: (state, action: PayloadAction<Order[]>) => {
-      state.items = action.payload;
+    setOrders: (state, action: PayloadAction<Order[] | { items: Order[]; total: number; page: number; limit: number; total_pages: number }>) => {
+      if (Array.isArray(action.payload)) {
+        state.items = action.payload;
+        state.total = action.payload.length;
+        state.totalPages = 1;
+      } else {
+        state.items = action.payload.items;
+        state.total = action.payload.total;
+        state.page = action.payload.page;
+        state.limit = action.payload.limit;
+        state.totalPages = action.payload.total_pages;
+      }
       state.loading = false;
       state.error = null;
     },
@@ -64,11 +82,20 @@ export const {
 } = orderSlice.actions;
 
 // Thunks using standard reducers
-export const fetchOrders = (statusFilter: string | null = null) => async (dispatch: AppDispatch) => {
+export const fetchOrders = (
+  statusFilter: string | null = null,
+  page: number = 1,
+  limit: number = 10
+) => async (dispatch: AppDispatch) => {
   dispatch(setLoading(true));
   dispatch(setError(null));
   try {
-    const url = statusFilter ? `/orders?status=${statusFilter}` : '/orders';
+    const params = new URLSearchParams();
+    if (statusFilter) params.append('status', statusFilter);
+    if (page) params.append('page', String(page));
+    if (limit) params.append('limit', String(limit));
+
+    const url = `/orders?${params.toString()}`;
     const response = await api.get(url);
     dispatch(setOrders(response.data));
     return { success: true, data: response.data };

@@ -1,7 +1,8 @@
-from typing import List
-from fastapi import APIRouter, Depends, BackgroundTasks, status
+from typing import List, Optional, Union
+from fastapi import APIRouter, Depends, Query, BackgroundTasks, status
 from backend.config.database import get_db
 from backend.schemas.order import OrderCreate, OrderUpdate, OrderOut, OrderApprovalAction
+from backend.schemas.pagination import PaginatedResponse
 from backend.handlers.order_handler import OrderHandler
 from backend.utils.security import get_current_user, require_role
 
@@ -18,21 +19,27 @@ def create_order(
     return OrderHandler(conn).create(data, current_user, email_queue)
 
 
-@router.get("", response_model=List[OrderOut])
+@router.get("", response_model=Union[PaginatedResponse[OrderOut], List[OrderOut]])
 def get_orders(
+    status: Optional[str] = Query(None, description="Filter by order status"),
+    page: Optional[int] = Query(None, ge=1, description="Page number"),
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Items per page"),
     conn=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """Managers retrieve all orders; Sales Reps retrieve only their own orders."""
-    return OrderHandler(conn).get_orders(current_user)
+    return OrderHandler(conn).get_orders(current_user, status=status, page=page, limit=limit)
 
 
-@router.get("/my-orders", response_model=List[OrderOut])
+@router.get("/my-orders", response_model=Union[PaginatedResponse[OrderOut], List[OrderOut]])
 def get_my_orders(
+    status: Optional[str] = Query(None, description="Filter by order status"),
+    page: Optional[int] = Query(None, ge=1, description="Page number"),
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Items per page"),
     conn=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    return OrderHandler(conn).get_my_orders(current_user)
+    return OrderHandler(conn).get_my_orders(current_user, status=status, page=page, limit=limit)
 
 
 @router.get("/{order_id}", response_model=OrderOut)

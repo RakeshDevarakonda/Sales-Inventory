@@ -6,12 +6,20 @@ import { getErrorMessage } from '../../utils/errors';
 
 interface ProductState {
   items: Product[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
   loading: boolean;
   error: string | null;
 }
 
 const initialState: ProductState = {
   items: [],
+  total: 0,
+  page: 1,
+  limit: 10,
+  totalPages: 1,
   loading: false,
   error: null,
 };
@@ -30,8 +38,18 @@ const productSlice = createSlice({
     clearProductError: (state) => {
       state.error = null;
     },
-    setProducts: (state, action: PayloadAction<Product[]>) => {
-      state.items = action.payload;
+    setProducts: (state, action: PayloadAction<Product[] | { items: Product[]; total: number; page: number; limit: number; total_pages: number }>) => {
+      if (Array.isArray(action.payload)) {
+        state.items = action.payload;
+        state.total = action.payload.length;
+        state.totalPages = 1;
+      } else {
+        state.items = action.payload.items;
+        state.total = action.payload.total;
+        state.page = action.payload.page;
+        state.limit = action.payload.limit;
+        state.totalPages = action.payload.total_pages;
+      }
       state.loading = false;
       state.error = null;
     },
@@ -64,11 +82,21 @@ export const {
 } = productSlice.actions;
 
 // Fetch all products
-export const fetchProducts = (activeOnly: boolean = false) => async (dispatch: AppDispatch) => {
+export const fetchProducts = (
+  activeOnly: boolean = false,
+  page?: number,
+  limit?: number
+) => async (dispatch: AppDispatch) => {
   dispatch(setLoading(true));
   dispatch(setError(null));
   try {
-    const url = activeOnly ? '/products?active_only=true' : '/products';
+    const params = new URLSearchParams();
+    if (activeOnly) params.append('active_only', 'true');
+    if (page) params.append('page', String(page));
+    if (limit) params.append('limit', String(limit));
+
+    const queryStr = params.toString();
+    const url = queryStr ? `/products?${queryStr}` : '/products';
     const response = await api.get(url);
     dispatch(setProducts(response.data));
     return { success: true, data: response.data };

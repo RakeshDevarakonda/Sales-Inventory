@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchCustomers, createCustomer, updateCustomer, deleteCustomer } from '../store/slices/customerSlice';
+import { Modal, ConfirmDialog } from '../components/common/Modal';
+import { Pagination } from '../components/common/Pagination';
 import {
   Users,
   Plus,
@@ -17,13 +19,17 @@ import {
 
 export default function Customers() {
   const dispatch = useAppDispatch();
-  const { items: customers, loading, error } = useAppSelector((state) => state.customers);
+  const { items: customers, total, page, pageSize, totalPages, loading, error } = useAppSelector((state) => state.customers);
   const { user } = useAppSelector((state) => state.auth);
 
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [customerToDelete, setCustomerToDelete] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Form fields
   const [name, setName] = useState('');
@@ -33,8 +39,8 @@ export default function Customers() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
-    dispatch(fetchCustomers());
-  }, [dispatch]);
+    dispatch(fetchCustomers(currentPage, rowsPerPage));
+  }, [dispatch, currentPage, rowsPerPage]);
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,12 +118,19 @@ export default function Customers() {
     }
   };
 
-  const handleDeleteCustomer = async (c: any) => {
-    if (window.confirm(`Delete client "${c.name}"? This action cannot be undone.`)) {
-      const res = await dispatch(deleteCustomer(c.id));
-      if (!res.success) {
-        alert(res.error || 'Failed to delete customer');
-      }
+  const handleDeleteCustomer = (c: any) => {
+    setCustomerToDelete(c);
+  };
+
+  const confirmDeleteCustomer = async () => {
+    if (!customerToDelete) return;
+    setDeleting(true);
+    const res = await dispatch(deleteCustomer(customerToDelete.id));
+    setDeleting(false);
+    if (res.success) {
+      setCustomerToDelete(null);
+    } else {
+      setActionError(res.error || 'Failed to delete customer');
     }
   };
 
@@ -260,190 +273,211 @@ export default function Customers() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={rowsPerPage}
+          totalItems={total}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setRowsPerPage}
+          pageSizeOptions={[5, 10, 20, 50]}
+        />
       </div>
 
       {/* Add Customer Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg border border-slate-200 max-w-md w-full p-6 shadow-xl animate-in fade-in duration-150">
-            <h3 className="text-base font-bold text-slate-900 mb-1">Add Customer</h3>
-            <p className="text-xs text-slate-500 mb-5">Create a corporate account or client profile</p>
-
-            {actionError && (
-              <div className="mb-4 p-3 bg-rose-50 text-rose-700 text-xs rounded border border-rose-200">
-                {actionError}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateCustomer} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Full Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Acme Corp or Jane Doe"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Email Address <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="contact@company.com"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Phone (10 digits) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    maxLength={10}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    placeholder="9876543210"
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Address <span className="text-rose-500">*</span>
-                </label>
-                <textarea
-                  rows={2}
-                  required
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Full billing or delivery address..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded transition-colors cursor-pointer shadow-2xs"
-                >
-                  Save Customer
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add Customer"
+        subtitle="Create a corporate account or client profile"
+        maxWidth="md"
+      >
+        {actionError && (
+          <div className="mb-4 p-3 bg-rose-50 text-rose-700 text-xs rounded-lg border border-rose-200">
+            {actionError}
           </div>
-        </div>
-      )}
+        )}
+
+        <form onSubmit={handleCreateCustomer} className="space-y-3.5">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Full Name <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Acme Corp or Jane Doe"
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Email Address <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="contact@company.com"
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Phone (10 digits) <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="tel"
+                required
+                maxLength={10}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="9876543210"
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Address <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              rows={2}
+              required
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Full billing or delivery address..."
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setShowAddModal(false)}
+              className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors cursor-pointer border border-slate-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors cursor-pointer shadow-2xs"
+            >
+              Save Customer
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Edit Customer Modal */}
-      {showEditModal && selectedCustomer && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg border border-slate-200 max-w-md w-full p-6 shadow-xl animate-in fade-in duration-150">
-            <h3 className="text-base font-bold text-slate-900 mb-1">Edit Customer</h3>
-            <p className="text-xs text-slate-500 mb-5">Update contact details and address</p>
-
-            {actionError && (
-              <div className="mb-4 p-3 bg-rose-50 text-rose-700 text-xs rounded border border-rose-200">
-                {actionError}
-              </div>
-            )}
-
-            <form onSubmit={handleUpdateCustomer} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Full Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Email Address <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Phone (10 digits) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    maxLength={10}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    placeholder="9876543210"
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Address <span className="text-rose-500">*</span>
-                </label>
-                <textarea
-                  rows={2}
-                  required
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded transition-colors cursor-pointer shadow-2xs"
-                >
-                  Update Customer
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showEditModal && Boolean(selectedCustomer)}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Customer"
+        subtitle="Update contact details and address"
+        maxWidth="md"
+      >
+        {actionError && (
+          <div className="mb-4 p-3 bg-rose-50 text-rose-700 text-xs rounded-lg border border-rose-200">
+            {actionError}
           </div>
-        </div>
-      )}
+        )}
+
+        <form onSubmit={handleUpdateCustomer} className="space-y-3.5">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Full Name <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Email Address <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Phone (10 digits) <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="tel"
+                required
+                maxLength={10}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="9876543210"
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Address <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              rows={2}
+              required
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setShowEditModal(false)}
+              className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors cursor-pointer border border-slate-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors cursor-pointer shadow-2xs"
+            >
+              Update Customer
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Customer Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(customerToDelete)}
+        onClose={() => setCustomerToDelete(null)}
+        onConfirm={confirmDeleteCustomer}
+        title="Delete Customer Profile"
+        message={`Are you sure you want to delete "${customerToDelete?.name}"? All associated history will be impacted. This action cannot be reversed.`}
+        confirmText="Delete Customer"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   );
 }

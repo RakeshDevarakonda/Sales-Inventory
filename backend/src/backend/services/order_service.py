@@ -37,13 +37,37 @@ class OrderService:
         self.settings_repo = settings_repo or SettingsRepository(conn)
         self.notification_svc = notification_svc or email_service
 
-    def get_orders(self, current_user: dict):
+    def get_orders(self, current_user: dict, status: str = None, page: int = None, limit: int = None):
         if current_user["role"] == "MANAGER":
-            return self.repo.get_all()
-        return self.repo.get_by_user_id(current_user["id"])
+            res = self.repo.get_all(status=status, page=page, limit=limit)
+        else:
+            res = self.repo.get_by_user_id(current_user["id"], status=status, page=page, limit=limit)
 
-    def get_my_orders(self, user_id: int):
-        return self.repo.get_by_user_id(user_id)
+        if isinstance(res, dict):
+            total = res["total"]
+            total_pages = (total + limit - 1) // limit if limit else 1
+            return {
+                "items": res["items"],
+                "total": total,
+                "page": page or 1,
+                "limit": limit or total,
+                "total_pages": total_pages,
+            }
+        return res
+
+    def get_my_orders(self, user_id: int, status: str = None, page: int = None, limit: int = None):
+        res = self.repo.get_by_user_id(user_id, status=status, page=page, limit=limit)
+        if isinstance(res, dict):
+            total = res["total"]
+            total_pages = (total + limit - 1) // limit if limit else 1
+            return {
+                "items": res["items"],
+                "total": total,
+                "page": page or 1,
+                "limit": limit or total,
+                "total_pages": total_pages,
+            }
+        return res
 
     def get_by_id(self, order_id: int, current_user: dict):
         order = self.repo.get_by_id(order_id)

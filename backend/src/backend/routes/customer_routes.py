@@ -1,7 +1,8 @@
-from typing import List
-from fastapi import APIRouter, Depends, status
+from typing import List, Optional, Union
+from fastapi import APIRouter, Depends, Query, status
 from backend.config.database import get_db
 from backend.schemas.customer import CustomerCreate, CustomerUpdate, CustomerOut
+from backend.schemas.pagination import PaginatedResponse
 from backend.handlers.customer_handler import CustomerHandler
 from backend.utils.security import get_current_user
 
@@ -17,12 +18,14 @@ def create_customer(
     return CustomerHandler(conn).create_customer(customer_data)
 
 
-@router.get("", response_model=List[CustomerOut])
+@router.get("", response_model=Union[PaginatedResponse[CustomerOut], List[CustomerOut]])
 def get_all_customers(
+    page: Optional[int] = Query(None, ge=1, description="Page number"),
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Items per page"),
     conn=Depends(get_db),
     _user=Depends(get_current_user)
 ):
-    return CustomerHandler(conn).get_all_customers()
+    return CustomerHandler(conn).get_all_customers(page=page, limit=limit)
 
 
 @router.get("/{customer_id}", response_model=CustomerOut)

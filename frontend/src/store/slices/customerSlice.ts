@@ -6,12 +6,20 @@ import { getErrorMessage } from '../../utils/errors';
 
 interface CustomerState {
   items: Customer[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
   loading: boolean;
   error: string | null;
 }
 
 const initialState: CustomerState = {
   items: [],
+  total: 0,
+  page: 1,
+  limit: 10,
+  totalPages: 1,
   loading: false,
   error: null,
 };
@@ -27,8 +35,18 @@ const customerSlice = createSlice({
       state.error = action.payload;
       state.loading = false;
     },
-    setCustomers: (state, action: PayloadAction<Customer[]>) => {
-      state.items = action.payload;
+    setCustomers: (state, action: PayloadAction<Customer[] | { items: Customer[]; total: number; page: number; limit: number; total_pages: number }>) => {
+      if (Array.isArray(action.payload)) {
+        state.items = action.payload;
+        state.total = action.payload.length;
+        state.totalPages = 1;
+      } else {
+        state.items = action.payload.items;
+        state.total = action.payload.total;
+        state.page = action.payload.page;
+        state.limit = action.payload.limit;
+        state.totalPages = action.payload.total_pages;
+      }
       state.loading = false;
       state.error = null;
     },
@@ -56,11 +74,17 @@ export const {
   removeCustomerFromList,
 } = customerSlice.actions;
 
-export const fetchCustomers = () => async (dispatch: AppDispatch) => {
+export const fetchCustomers = (page?: number, limit?: number) => async (dispatch: AppDispatch) => {
   dispatch(setLoading(true));
   dispatch(setError(null));
   try {
-    const response = await api.get('/customers');
+    const params = new URLSearchParams();
+    if (page) params.append('page', String(page));
+    if (limit) params.append('limit', String(limit));
+
+    const queryStr = params.toString();
+    const url = queryStr ? `/customers?${queryStr}` : '/customers';
+    const response = await api.get(url);
     dispatch(setCustomers(response.data));
     return { success: true, data: response.data };
   } catch (err: any) {

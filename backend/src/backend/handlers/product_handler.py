@@ -9,8 +9,8 @@ class ProductHandler:
     def create(self, data: ProductCreate):
         return self.service.create(data)
 
-    def get_all(self):
-        return self.service.get_all()
+    def get_all(self, active_only: bool = False, page: int = None, limit: int = None):
+        return self.service.get_all(active_only=active_only, page=page, limit=limit)
 
     def get_by_id(self, product_id: int):
         return self.service.get_by_id(product_id)

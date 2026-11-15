@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchOrders, approveOrder, rejectOrder, cancelOrder } from '../store/slices/orderSlice';
+import { Modal, ConfirmDialog } from '../components/common/Modal';
+import { Pagination } from '../components/common/Pagination';
 import {
   ShoppingCart,
   Plus,
@@ -16,19 +18,23 @@ import { Link } from 'react-router-dom';
 
 export default function Orders() {
   const dispatch = useAppDispatch();
-  const { items: orders, loading, error } = useAppSelector((state) => state.orders);
+  const { items: orders, total, page, pageSize, totalPages, loading, error } = useAppSelector((state) => state.orders);
   const { user } = useAppSelector((state) => state.auth);
 
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [orderToCancel, setOrderToCancel] = useState<number | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchOrders(statusFilter || null));
-  }, [dispatch, statusFilter]);
+    dispatch(fetchOrders(statusFilter || null, currentPage, rowsPerPage));
+  }, [dispatch, statusFilter, currentPage, rowsPerPage]);
 
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,10 +57,16 @@ export default function Orders() {
     }
   };
 
-  const handleCancel = async (orderId: number) => {
-    if (window.confirm('Are you sure you want to cancel this order? Reserved stock will be returned.')) {
-      await dispatch(cancelOrder(orderId));
-    }
+  const handleCancel = (orderId: number) => {
+    setOrderToCancel(orderId);
+  };
+
+  const confirmCancelOrder = async () => {
+    if (!orderToCancel) return;
+    setCancelling(true);
+    await dispatch(cancelOrder(orderToCancel));
+    setCancelling(false);
+    setOrderToCancel(null);
   };
 
   const filteredOrders = orders.filter((o) => {
@@ -235,65 +247,90 @@ export default function Orders() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={rowsPerPage}
+          totalItems={total}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setRowsPerPage}
+          pageSizeOptions={[5, 10, 20, 50]}
+        />
       </div>
 
       {/* Review Notes Modal */}
-      {selectedOrder && actionType && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg border border-slate-200 max-w-md w-full p-6 shadow-xl animate-in fade-in duration-150">
-            <h3 className="text-base font-bold text-slate-900 mb-1">
-              {actionType === 'approve' ? 'Approve Order' : 'Reject Order'}
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Order <strong className="text-slate-800 font-mono">{selectedOrder.order_number}</strong> (₹{Number(selectedOrder.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-            </p>
-
-            {actionError && (
-              <div className="mb-4 p-3 bg-rose-50 text-rose-700 text-xs rounded border border-rose-200">
-                {actionError}
-              </div>
-            )}
-
-            <form onSubmit={handleAction} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Manager Review Notes
-                </label>
-                <textarea
-                  rows={3}
-                  value={approvalNotes}
-                  onChange={(e) => setApprovalNotes(e.target.value)}
-                  placeholder="Optional review feedback for the sales representative..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedOrder(null);
-                    setActionType(null);
-                  }}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={`px-4 py-1.5 text-xs font-medium text-white rounded transition-colors cursor-pointer shadow-2xs ${
-                    actionType === 'approve'
-                      ? 'bg-emerald-600 hover:bg-emerald-700'
-                      : 'bg-rose-600 hover:bg-rose-700'
-                  }`}
-                >
-                  Confirm {actionType === 'approve' ? 'Approval' : 'Rejection'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={Boolean(selectedOrder && actionType)}
+        onClose={() => {
+          setSelectedOrder(null);
+          setActionType(null);
+        }}
+        title={actionType === 'approve' ? 'Approve Sales Order' : 'Reject Sales Order'}
+        subtitle={
+          selectedOrder
+            ? `Order #${selectedOrder.order_number} • Total ₹${Number(selectedOrder.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            : undefined
+        }
+        maxWidth="md"
+      >
+        {actionError && (
+          <div className="mb-4 p-3 bg-rose-50 text-rose-700 text-xs rounded-lg border border-rose-200">
+            {actionError}
           </div>
-        </div>
-      )}
+        )}
+
+        <form onSubmit={handleAction} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Manager Review Notes
+            </label>
+            <textarea
+              rows={3}
+              value={approvalNotes}
+              onChange={(e) => setApprovalNotes(e.target.value)}
+              placeholder="Optional feedback for the sales representative..."
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-xs text-slate-900 focus:outline-none focus:border-slate-500"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedOrder(null);
+                setActionType(null);
+              }}
+              className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors cursor-pointer border border-slate-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={`px-4 py-1.5 text-xs font-semibold text-white rounded-md transition-colors cursor-pointer shadow-xs ${
+                actionType === 'approve'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-rose-600 hover:bg-rose-700'
+              }`}
+            >
+              Confirm {actionType === 'approve' ? 'Approval' : 'Rejection'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Cancel Order Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(orderToCancel)}
+        onClose={() => setOrderToCancel(null)}
+        onConfirm={confirmCancelOrder}
+        title="Cancel Sales Order"
+        message="Are you sure you want to cancel this order? The order status will change to CANCELLED and any reserved inventory will be automatically restored."
+        confirmText="Cancel Order"
+        variant="warning"
+        loading={cancelling}
+      />
     </div>
   );
 }

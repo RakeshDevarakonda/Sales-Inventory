@@ -18,8 +18,24 @@ class CustomerRepository(IReadOnlyRepository, IDeletableRepository):
             )
             return cursor.fetchone()
 
-    def get_all(self):
+    def get_all(self, page: int = None, limit: int = None):
         with self.conn.cursor() as cursor:
+            if page and limit:
+                offset = (page - 1) * limit
+                cursor.execute("SELECT COUNT(1) AS total FROM customers;")
+                total = cursor.fetchone()["total"]
+
+                cursor.execute(
+                    """
+                    SELECT id, name, email, phone, address, created_at, updated_at
+                    FROM customers
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (limit, offset)
+                )
+                return {"items": cursor.fetchall(), "total": total}
+
             cursor.execute(
                 """
                 SELECT id, name, email, phone, address, created_at, updated_at

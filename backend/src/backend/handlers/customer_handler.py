@@ -9,8 +9,8 @@ class CustomerHandler:
     def create_customer(self, customer_data: CustomerCreate):
         return self.service.create(customer_data)
 
-    def get_all_customers(self):
-        return self.service.get_all()
+    def get_all_customers(self, page: int = None, limit: int = None):
+        return self.service.get_all(page=page, limit=limit)
 
     def get_customer_by_id(self, customer_id: int):
         return self.service.get_by_id(customer_id)

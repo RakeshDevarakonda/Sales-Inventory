@@ -8,8 +8,19 @@ class CustomerService:
         self.conn = conn
         self.repo = CustomerRepository(conn)
 
-    def get_all(self):
-        return self.repo.get_all()
+    def get_all(self, page: int = None, limit: int = None):
+        res = self.repo.get_all(page=page, limit=limit)
+        if isinstance(res, dict):
+            total = res["total"]
+            total_pages = (total + limit - 1) // limit if limit else 1
+            return {
+                "items": res["items"],
+                "total": total,
+                "page": page or 1,
+                "limit": limit or total,
+                "total_pages": total_pages,
+            }
+        return res
 
     def get_by_id(self, customer_id: int):
         customer = self.repo.find_by_id(customer_id)

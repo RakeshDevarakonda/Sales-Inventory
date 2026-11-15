@@ -43,12 +43,32 @@ class ProductRepository(IReadOnlyRepository):
                 cursor.execute("SELECT id FROM products WHERE sku = %s", (sku,))
             return cursor.fetchone()
 
-    def get_all(self):
+    def get_all(self, active_only: bool = False, page: int = None, limit: int = None):
         with self.conn.cursor() as cursor:
+            where_clause = "WHERE is_active = TRUE" if active_only else ""
+
+            if page and limit:
+                offset = (page - 1) * limit
+                cursor.execute(f"SELECT COUNT(1) AS total FROM products {where_clause};")
+                total = cursor.fetchone()["total"]
+
+                cursor.execute(
+                    f"""
+                    SELECT id, sku, name, description, price, stock_quantity, is_active, created_at, updated_at
+                    FROM products
+                    {where_clause}
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (limit, offset)
+                )
+                return {"items": cursor.fetchall(), "total": total}
+
             cursor.execute(
-                """
+                f"""
                 SELECT id, sku, name, description, price, stock_quantity, is_active, created_at, updated_at
                 FROM products
+                {where_clause}
                 ORDER BY id DESC
                 """
             )
