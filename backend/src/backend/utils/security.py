@@ -3,12 +3,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 import jwt
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from backend.config.settings import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 from backend.config.database import get_db
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -70,7 +70,19 @@ def decode_token(token: str) -> dict:
         )
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), conn = Depends(get_db)):
+def get_current_user(request: Request, token: Optional[str] = Depends(oauth2_scheme), conn = Depends(get_db)):
+    # 1. Check Bearer Authorization header
+    # 2. Fallback to HttpOnly access_token cookie
+    if not token:
+        token = request.cookies.get("access_token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
     payload = decode_token(token)
 
     if payload.get("token_type") != "access":
@@ -107,7 +119,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), conn = Depends(get_db)
 
         # 2. Fetch user
         cursor.execute(
-            "SELECT id, username, email, phone, role, is_active, created_at FROM users WHERE id = %s",
+            "SELECT id, username, email, phone, role, is_active, created_at, updated_at FROM users WHERE id = %s",
             (user_id,)
         )
         user = cursor.fetchone()

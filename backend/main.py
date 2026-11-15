@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from backend.config.settings import CORS_ORIGINS
 from backend.config.database import check_database_connectivity, close_connection_pool
 from backend.routes import api_router
 from backend.handlers.error_handlers import register_error_handlers
@@ -23,6 +25,15 @@ app = FastAPI(
     title="Sales and Inventory Management System",
     version="1.0.0",
     lifespan=lifespan
+)
+
+# Register CORS Middleware from ENV
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Register Global Exception Handlers
