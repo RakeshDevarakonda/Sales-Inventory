@@ -9,6 +9,36 @@ class OrderRepository(IReadOnlyRepository):
     def find_by_id(self, order_id: int) -> Optional[Dict[str, Any]]:
         return self.get_by_id(order_id)
 
+    def _enrich_orders_with_items(self, orders: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not orders:
+            return orders
+
+        order_ids = [o["id"] for o in orders]
+        format_strings = ",".join(["%s"] * len(order_ids))
+
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT oi.id, oi.order_id, oi.product_id, p.name AS product_name, p.sku AS product_sku,
+                       oi.quantity, oi.unit_price, oi.subtotal, oi.created_at, oi.updated_at
+                FROM order_items oi
+                JOIN products p ON oi.product_id = p.id
+                WHERE oi.order_id IN ({format_strings})
+                ORDER BY oi.id ASC
+                """,
+                tuple(order_ids)
+            )
+            items = cursor.fetchall()
+
+        items_by_order: Dict[int, List[Dict[str, Any]]] = {}
+        for item in items:
+            items_by_order.setdefault(item["order_id"], []).append(item)
+
+        for o in orders:
+            o["items"] = items_by_order.get(o["id"], [])
+
+        return orders
+
     def get_all(self, status: str = None, page: int = None, limit: int = None):
         with self.conn.cursor() as cursor:
             where_sql = "WHERE o.status = %s" if status else ""
@@ -35,7 +65,9 @@ class OrderRepository(IReadOnlyRepository):
                     """,
                     query_params
                 )
-                return {"items": cursor.fetchall(), "total": total}
+                orders = cursor.fetchall()
+                orders = self._enrich_orders_with_items(orders)
+                return {"items": orders, "total": total}
 
             cursor.execute(
                 f"""
@@ -51,7 +83,8 @@ class OrderRepository(IReadOnlyRepository):
                 """,
                 params
             )
-            return cursor.fetchall()
+            orders = cursor.fetchall()
+            return self._enrich_orders_with_items(orders)
 
     def get_by_user_id(self, user_id: int, status: str = None, page: int = None, limit: int = None):
         with self.conn.cursor() as cursor:
@@ -82,7 +115,9 @@ class OrderRepository(IReadOnlyRepository):
                     """,
                     query_params
                 )
-                return {"items": cursor.fetchall(), "total": total}
+                orders = cursor.fetchall()
+                orders = self._enrich_orders_with_items(orders)
+                return {"items": orders, "total": total}
 
             cursor.execute(
                 f"""
@@ -98,7 +133,8 @@ class OrderRepository(IReadOnlyRepository):
                 """,
                 tuple(params)
             )
-            return cursor.fetchall()
+            orders = cursor.fetchall()
+            return self._enrich_orders_with_items(orders)
 
     def get_by_id(self, order_id: int):
         with self.conn.cursor() as cursor:

@@ -221,6 +221,7 @@ export default function Products() {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold tracking-wider text-[11px]">
               <tr>
+                <th className="px-6 py-3 w-16 text-center">S.No</th>
                 <th className="px-6 py-3">Product Name</th>
                 <th className="px-6 py-3">SKU</th>
                 <th className="px-6 py-3">Unit Price</th>
@@ -232,21 +233,25 @@ export default function Products() {
             <tbody className="divide-y divide-slate-100">
               {loading && products.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400 text-xs">
+                  <td colSpan={7} className="px-6 py-10 text-center text-slate-400 text-xs">
                     Loading catalog items...
                   </td>
                 </tr>
               ) : filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400 text-xs">
+                  <td colSpan={7} className="px-6 py-10 text-center text-slate-400 text-xs">
                     No products found matching your search.
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((product) => {
+                filteredProducts.map((product, idx) => {
                   const isLow = product.stock_quantity <= 10;
+                  const serialNumber = (currentPage - 1) * rowsPerPage + idx + 1;
                   return (
                     <tr key={product.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="px-6 py-3.5 text-center font-mono text-slate-400 text-xs">
+                        {serialNumber}
+                      </td>
                       <td className="px-6 py-3.5">
                         <div className="font-semibold text-slate-900">{product.name}</div>
                         {product.description && (

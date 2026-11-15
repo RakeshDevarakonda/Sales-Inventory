@@ -40,6 +40,17 @@ class UserRepository:
             )
             return cursor.fetchone()
 
+    def get_manager_emails(self) -> list:
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT email FROM users
+                WHERE role = 'MANAGER' AND is_active = TRUE
+                """
+            )
+            rows = cursor.fetchall()
+            return [r["email"] for r in rows if r.get("email")]
+
     def get_all(self):
         with self.conn.cursor() as cursor:
             cursor.execute(

@@ -13,6 +13,8 @@ import {
   Filter,
   Search,
   AlertCircle,
+  Eye,
+  Package,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -31,6 +33,7 @@ export default function Orders() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [orderToCancel, setOrderToCancel] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [viewingOrderDetails, setViewingOrderDetails] = useState<any>(null);
 
   useEffect(() => {
     dispatch(fetchOrders(statusFilter || null, currentPage, rowsPerPage));
@@ -143,6 +146,7 @@ export default function Orders() {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold tracking-wider text-[11px]">
               <tr>
+                <th className="px-6 py-3 w-16 text-center">S.No</th>
                 <th className="px-6 py-3">Order Number</th>
                 <th className="px-6 py-3">Customer</th>
                 <th className="px-6 py-3">Items</th>
@@ -155,18 +159,18 @@ export default function Orders() {
             <tbody className="divide-y divide-slate-100">
               {loading && orders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-slate-400 text-xs">
+                  <td colSpan={8} className="px-6 py-10 text-center text-slate-400 text-xs">
                     Loading orders...
                   </td>
                 </tr>
               ) : filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-slate-400 text-xs">
+                  <td colSpan={8} className="px-6 py-10 text-center text-slate-400 text-xs">
                     No orders found.
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((order) => {
+                filteredOrders.map((order, idx) => {
                   let badge = 'bg-slate-100 text-slate-700 border-slate-200';
                   if (order.status === 'CONFIRMED' || order.status === 'APPROVED') {
                     badge = 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -181,14 +185,28 @@ export default function Orders() {
                     ['PENDING_APPROVAL', 'CONFIRMED', 'APPROVED'].includes(order.status) &&
                     (user?.role === 'MANAGER' || order.created_by_id === user?.id);
 
+                  const serialNumber = (currentPage - 1) * rowsPerPage + idx + 1;
+
                   return (
                     <tr key={order.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="px-6 py-3.5 text-center font-mono text-slate-400 text-xs">
+                        {serialNumber}
+                      </td>
                       <td className="px-6 py-3.5 font-mono font-medium text-slate-900">{order.order_number}</td>
                       <td className="px-6 py-3.5 font-medium text-slate-800">
                         {order.customer_name || `Customer #${order.customer_id}`}
                       </td>
-                      <td className="px-6 py-3.5 text-slate-500">
-                        {order.items?.length || 0} line item(s)
+                      <td className="px-6 py-3.5">
+                        <button
+                          type="button"
+                          onClick={() => setViewingOrderDetails(order)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200 transition-colors cursor-pointer group"
+                          title="View order items"
+                        >
+                          <Package className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                          <span>{order.items?.length || 0} product(s)</span>
+                          <span className="text-[10px] text-slate-400 group-hover:text-slate-600 ml-0.5">👁</span>
+                        </button>
                       </td>
                       <td className="px-6 py-3.5 font-bold text-slate-900 font-mono">
                         ₹{Number(order.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -259,6 +277,109 @@ export default function Orders() {
           pageSizeOptions={[5, 10, 20, 50]}
         />
       </div>
+
+      {/* Compact Responsive Order Details Modal */}
+      <Modal
+        isOpen={Boolean(viewingOrderDetails)}
+        onClose={() => setViewingOrderDetails(null)}
+        title={`Order #${viewingOrderDetails?.order_number || ''}`}
+        subtitle={`Total: ₹${Number(viewingOrderDetails?.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} • ${viewingOrderDetails?.customer_name || 'Customer'}`}
+        maxWidth="md"
+      >
+        {viewingOrderDetails && (
+          <div className="space-y-3">
+            {/* Desktop Table View (sm+) */}
+            <div className="hidden sm:block border border-slate-200 rounded-lg overflow-hidden">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-[11px]">
+                  <tr>
+                    <th className="px-3.5 py-2 w-10 text-center">#</th>
+                    <th className="px-3.5 py-2">Product Name</th>
+                    <th className="px-3.5 py-2 text-center w-16">Qty</th>
+                    <th className="px-3.5 py-2 text-right w-24">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {viewingOrderDetails.items && viewingOrderDetails.items.length > 0 ? (
+                    viewingOrderDetails.items.map((item: any, itemIdx: number) => (
+                      <tr key={item.id} className="hover:bg-slate-50/50">
+                        <td className="px-3.5 py-2 text-center font-mono text-slate-400 text-xs">
+                          {itemIdx + 1}
+                        </td>
+                        <td className="px-3.5 py-2">
+                          <span className="font-semibold text-slate-900 block">{item.product_name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {item.product_sku || `ID: #${item.product_id}`} • ₹{Number(item.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} each
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-2 text-center font-mono font-bold text-slate-800">
+                          {item.quantity}
+                        </td>
+                        <td className="px-3.5 py-2 text-right font-mono font-semibold text-slate-900">
+                          ₹{Number(item.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="px-3.5 py-4 text-center text-slate-400 text-xs">
+                        No product items found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View (< sm) */}
+            <div className="sm:hidden space-y-2 max-h-[50vh] overflow-y-auto">
+              {viewingOrderDetails.items && viewingOrderDetails.items.length > 0 ? (
+                viewingOrderDetails.items.map((item: any, itemIdx: number) => (
+                  <div key={item.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs">
+                    <div className="flex-1 pr-2">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-[10px] font-mono text-slate-400">#{itemIdx + 1}</span>
+                        <strong className="font-semibold text-slate-900">{item.product_name}</strong>
+                      </div>
+                      <span className="text-[11px] text-slate-500 font-mono">
+                        Qty: <strong className="text-slate-800 font-bold">{item.quantity}</strong> × ₹{Number(item.unit_price).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="text-right font-mono font-bold text-slate-900">
+                      ₹{Number(item.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 rounded-lg border border-slate-200">
+                  No product items found.
+                </div>
+              )}
+            </div>
+
+            {/* Manager Notes if present */}
+            {viewingOrderDetails.approval_notes && (
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
+                <strong className="font-semibold block text-[11px] text-amber-950 mb-0.5">Manager Review Notes:</strong>
+                {viewingOrderDetails.approval_notes}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+              <span className="text-xs text-slate-500 font-medium">
+                Sales Rep: <strong className="text-slate-700">{viewingOrderDetails.created_by_username || 'Sales Rep'}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setViewingOrderDetails(null)}
+                className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Review Notes Modal */}
       <Modal

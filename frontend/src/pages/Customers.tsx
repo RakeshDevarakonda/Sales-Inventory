@@ -211,6 +211,7 @@ export default function Customers() {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold tracking-wider text-[11px]">
               <tr>
+                <th className="px-6 py-3 w-16 text-center">S.No</th>
                 <th className="px-6 py-3">Customer Name</th>
                 <th className="px-6 py-3">Email Address</th>
                 <th className="px-6 py-3">Phone</th>
@@ -221,54 +222,60 @@ export default function Customers() {
             <tbody className="divide-y divide-slate-100">
               {loading && customers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-slate-400 text-xs">
+                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400 text-xs">
                     Loading customer records...
                   </td>
                 </tr>
               ) : filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-slate-400 text-xs">
+                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400 text-xs">
                     No customers found.
                   </td>
                 </tr>
               ) : (
-                filteredCustomers.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="px-6 py-3.5 font-semibold text-slate-900">{c.name}</td>
-                    <td className="px-6 py-3.5 text-slate-600 font-mono text-[11px]">{c.email}</td>
-                    <td className="px-6 py-3.5 text-slate-600">{c.phone || '—'}</td>
-                    <td className="px-6 py-3.5 text-slate-500 max-w-sm truncate">
-                      {c.address ? (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span className="truncate">{c.address}</span>
-                        </div>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="px-6 py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleOpenEdit(c)}
-                          className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded transition-colors cursor-pointer"
-                          title="Edit Customer"
-                        >
-                          Edit
-                        </button>
-                        {user?.role === 'MANAGER' && (
-                          <button
-                            onClick={() => handleDeleteCustomer(c)}
-                            className="px-2.5 py-1 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded transition-colors cursor-pointer"
-                            title="Delete Customer"
-                          >
-                            Delete
-                          </button>
+                filteredCustomers.map((c, idx) => {
+                  const serialNumber = (currentPage - 1) * rowsPerPage + idx + 1;
+                  return (
+                    <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="px-6 py-3.5 text-center font-mono text-slate-400 text-xs">
+                        {serialNumber}
+                      </td>
+                      <td className="px-6 py-3.5 font-semibold text-slate-900">{c.name}</td>
+                      <td className="px-6 py-3.5 text-slate-600 font-mono text-[11px]">{c.email}</td>
+                      <td className="px-6 py-3.5 text-slate-600">{c.phone || '—'}</td>
+                      <td className="px-6 py-3.5 text-slate-500 max-w-sm truncate">
+                        {c.address ? (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span className="truncate">{c.address}</span>
+                          </div>
+                        ) : (
+                          '—'
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-6 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenEdit(c)}
+                            className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded transition-colors cursor-pointer"
+                            title="Edit Customer"
+                          >
+                            Edit
+                          </button>
+                          {user?.role === 'MANAGER' && (
+                            <button
+                              onClick={() => handleDeleteCustomer(c)}
+                              className="px-2.5 py-1 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded transition-colors cursor-pointer"
+                              title="Delete Customer"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

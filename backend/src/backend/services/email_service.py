@@ -8,7 +8,7 @@ from backend.config.settings import (
     MAIL_USERNAME,
     MAIL_PASSWORD,
     MAIL_FROM,
-    MANAGER_EMAIL
+    FRONTEND_URL
 )
 
 
@@ -34,7 +34,6 @@ class EmailService(INotificationService):
         self.mail_username = MAIL_USERNAME
         self.mail_password = MAIL_PASSWORD
         self.mail_from = MAIL_FROM
-        self.manager_email = MANAGER_EMAIL
 
     def _send_email(self, recipient: str, subject: str, html_content: str):
         # If credentials are not configured in .env, log cleanly to console (mock mode for local dev)
@@ -65,32 +64,81 @@ class EmailService(INotificationService):
         except Exception as e:
             print(f"Failed to send email to {recipient}: {e}")
 
-    def send_order_pending_approval_notice(self, order_number: str, total_amount, sales_rep_name: str, manager_email: str = None):
-        recipient = manager_email or self.manager_email
+    def send_order_pending_approval_notice(self, order_number: str, total_amount, sales_rep_name: str, manager_email: str):
+        if not manager_email:
+            return
+        recipient = manager_email
+        orders_url = f"{FRONTEND_URL}/orders"
         subject = f"Action Required: Order {order_number} Requires Approval"
         html = f"""
-        <h3>Manager Order Approval Alert</h3>
-        <p>A new high-value sales order has been created and requires your review.</p>
-        <ul>
-            <li><strong>Order Number:</strong> {order_number}</li>
-            <li><strong>Total Amount:</strong> ${total_amount:,.2f}</li>
-            <li><strong>Created By:</strong> {sales_rep_name}</li>
-            <li><strong>Status:</strong> PENDING_APPROVAL</li>
-        </ul>
-        <p>Please log in to the management dashboard to approve or reject this order.</p>
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+            <h2 style="color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;">Manager Order Approval Alert</h2>
+            <p style="color: #475569; font-size: 14px; line-height: 1.5;">
+                A new high-value sales order exceeding the approval threshold has been submitted by <strong>{sales_rep_name}</strong> and is currently <strong>PENDING APPROVAL</strong>.
+            </p>
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;">
+                <table style="width: 100%; font-size: 13px; color: #334155; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600; width: 140px;">Order Number:</td>
+                        <td style="padding: 6px 0; font-family: monospace; font-size: 14px; color: #0f172a;">{order_number}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600;">Total Amount:</td>
+                        <td style="padding: 6px 0; font-weight: bold; color: #0f172a;">₹{float(total_amount):,.2f}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600;">Created By:</td>
+                        <td style="padding: 6px 0;">{sales_rep_name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600;">Status:</td>
+                        <td style="padding: 6px 0;"><span style="background-color: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">PENDING APPROVAL</span></td>
+                    </tr>
+                </table>
+            </div>
+            <div style="margin: 28px 0; text-align: center;">
+                <a href="{orders_url}" style="background-color: #0f172a; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 6px; display: inline-block;">
+                    Review & Approve Order →
+                </a>
+            </div>
+        </div>
         """
         self._send_email(recipient, subject, html)
 
     def send_order_decision_notice(self, sales_rep_email: str, order_number: str, decision: str, notes: str = None):
-        subject = f"Order {order_number} Has Been {decision}"
+        orders_url = f"{FRONTEND_URL}/orders"
+        is_approved = decision.upper() == "APPROVED"
+        status_bg = "#ecfdf5" if is_approved else "#fff1f2"
+        status_color = "#047857" if is_approved else "#be123c"
+        subject = f"Order {order_number} Has Been {decision.upper()}"
         html = f"""
-        <h3>Sales Order Status Update</h3>
-        <p>Your sales order has been reviewed by management.</p>
-        <ul>
-            <li><strong>Order Number:</strong> {order_number}</li>
-            <li><strong>Decision:</strong> {decision}</li>
-            <li><strong>Manager Notes:</strong> {notes or 'No notes provided'}</li>
-        </ul>
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+            <h2 style="color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;">Sales Order Status Update</h2>
+            <p style="color: #475569; font-size: 14px; line-height: 1.5;">
+                Your pending sales order has been reviewed by management.
+            </p>
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;">
+                <table style="width: 100%; font-size: 13px; color: #334155; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600; width: 140px;">Order Number:</td>
+                        <td style="padding: 6px 0; font-family: monospace; font-size: 14px; color: #0f172a;">{order_number}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600;">Decision:</td>
+                        <td style="padding: 6px 0;"><span style="background-color: {status_bg}; color: {status_color}; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">{decision.upper()}</span></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600;">Manager Notes:</td>
+                        <td style="padding: 6px 0; color: #334155; font-style: italic;">{notes or 'No additional review notes provided'}</td>
+                    </tr>
+                </table>
+            </div>
+            <div style="margin: 28px 0; text-align: center;">
+                <a href="{orders_url}" style="background-color: #0f172a; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 6px; display: inline-block;">
+                    View Order Details →
+                </a>
+            </div>
+        </div>
         """
         self._send_email(sales_rep_email, subject, html)
 

@@ -155,12 +155,16 @@ class OrderService:
             self.conn.commit()
 
             if requires_approval and email_queue:
-                email_queue.add_task(
-                    self.notification_svc.send_order_pending_approval_notice,
-                    order_number=order_number,
-                    total_amount=total_amount,
-                    sales_rep_name=current_user.get("username", "Sales Rep")
-                )
+                # Retrieve active manager emails directly from database
+                manager_emails = self.user_repo.get_manager_emails()
+                for m_email in manager_emails:
+                    email_queue.add_task(
+                        self.notification_svc.send_order_pending_approval_notice,
+                        order_number=order_number,
+                        total_amount=total_amount,
+                        sales_rep_name=current_user.get("username", "Sales Rep"),
+                        manager_email=m_email
+                    )
 
             return self.repo.get_by_id(order_id)
 

@@ -159,6 +159,7 @@ export default function Dashboard() {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold tracking-wider text-[11px]">
               <tr>
+                <th className="px-6 py-3 w-16 text-center">S.No</th>
                 <th className="px-6 py-3">Order Number</th>
                 <th className="px-6 py-3">Customer</th>
                 <th className="px-6 py-3">Sales Rep</th>
@@ -169,7 +170,7 @@ export default function Dashboard() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {summary?.recent_orders && summary.recent_orders.length > 0 ? (
-                summary.recent_orders.map((order) => {
+                summary.recent_orders.map((order, idx) => {
                   let badge = 'bg-slate-100 text-slate-700 border-slate-200';
                   if (order.status === 'CONFIRMED' || order.status === 'APPROVED') {
                     badge = 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -181,6 +182,9 @@ export default function Dashboard() {
 
                   return (
                     <tr key={order.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="px-6 py-3.5 text-center font-mono text-slate-400 text-xs">
+                        {idx + 1}
+                      </td>
                       <td className="px-6 py-3.5 font-mono font-medium text-slate-900">{order.order_number}</td>
                       <td className="px-6 py-3.5 font-medium text-slate-800">
                         {order.customer_name || `Customer #${order.customer_id}`}

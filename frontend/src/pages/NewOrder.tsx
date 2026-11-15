@@ -86,6 +86,14 @@ export default function NewOrder() {
       return;
     }
 
+    // Check for duplicate products across line items
+    const selectedProductIds = items.map((i) => i.product_id);
+    const uniqueProductIds = new Set(selectedProductIds);
+    if (selectedProductIds.length !== uniqueProductIds.size) {
+      setError('Duplicate products detected. Please adjust the quantity on a single line item rather than adding the same product multiple times.');
+      return;
+    }
+
     setSubmitting(true);
     const result = await dispatch(
       createOrder({
@@ -210,11 +218,20 @@ export default function NewOrder() {
                       className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:border-slate-500"
                     >
                       <option value={0}>-- Select Product --</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id} disabled={p.stock_quantity <= 0}>
-                          {p.name} (₹{Number(p.price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) — {p.stock_quantity} in stock
-                        </option>
-                      ))}
+                      {products.map((p) => {
+                        const isAlreadyChosen = items.some(
+                          (otherItem, otherIdx) => otherIdx !== index && otherItem.product_id === p.id
+                        );
+                        return (
+                          <option
+                            key={p.id}
+                            value={p.id}
+                            disabled={p.stock_quantity <= 0 || isAlreadyChosen}
+                          >
+                            {p.name} (₹{Number(p.price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) — {p.stock_quantity} in stock {isAlreadyChosen ? '(already added)' : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 

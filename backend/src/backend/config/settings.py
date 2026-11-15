@@ -16,13 +16,15 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS"))
 # Business Rules
 APPROVAL_THRESHOLD_AMOUNT = Decimal(os.getenv("APPROVAL_THRESHOLD_AMOUNT"))
 
+# Frontend Application URL
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
 # Email Configuration
 MAIL_SERVER = os.getenv("MAIL_SERVER")
 MAIL_PORT = int(os.getenv("MAIL_PORT")) if os.getenv("MAIL_PORT") else None
 MAIL_USERNAME = os.getenv("MAIL_USERNAME")
 MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
 MAIL_FROM = os.getenv("MAIL_FROM")
-MANAGER_EMAIL = os.getenv("MANAGER_EMAIL")
 
 # CORS Origins
 raw_cors = os.getenv("CORS_ORIGINS")
