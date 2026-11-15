@@ -9,6 +9,7 @@ import {
 } from '../store/slices/productSlice';
 import { Modal, ConfirmDialog } from '../components/common/Modal';
 import { Pagination } from '../components/common/Pagination';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import {
   Package,
   Plus,
@@ -231,10 +232,10 @@ export default function Products() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading && products.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-slate-400 text-xs">
-                    Loading catalog items...
+                  <td colSpan={7} className="py-12">
+                    <LoadingSpinner message="Loading catalog items..." size="sm" />
                   </td>
                 </tr>
               ) : filteredProducts.length === 0 ? (

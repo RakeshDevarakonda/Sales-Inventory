@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchCustomers, createCustomer, updateCustomer, deleteCustomer } from '../store/slices/customerSlice';
 import { Modal, ConfirmDialog } from '../components/common/Modal';
 import { Pagination } from '../components/common/Pagination';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import {
   Users,
   Plus,
@@ -220,10 +221,10 @@ export default function Customers() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading && customers.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400 text-xs">
-                    Loading customer records...
+                  <td colSpan={6} className="py-12">
+                    <LoadingSpinner message="Loading customer directory..." size="sm" />
                   </td>
                 </tr>
               ) : filteredCustomers.length === 0 ? (

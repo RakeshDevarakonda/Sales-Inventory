@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchDashboardSummary } from '../store/slices/dashboardSlice';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import {
   DollarSign,
   ShoppingCart,
@@ -23,8 +24,8 @@ export default function Dashboard() {
 
   if (loading && !summary) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <LoadingSpinner message="Fetching dashboard analytics & KPI metrics..." size="lg" />
       </div>
     );
   }

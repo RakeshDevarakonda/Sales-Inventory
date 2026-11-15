@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchOrders, approveOrder, rejectOrder, cancelOrder } from '../store/slices/orderSlice';
 import { Modal, ConfirmDialog } from '../components/common/Modal';
 import { Pagination } from '../components/common/Pagination';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import {
   ShoppingCart,
   Plus,
@@ -157,10 +158,10 @@ export default function Orders() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading && orders.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-10 text-center text-slate-400 text-xs">
-                    Loading orders...
+                  <td colSpan={8} className="py-12">
+                    <LoadingSpinner message="Loading orders..." size="sm" />
                   </td>
                 </tr>
               ) : filteredOrders.length === 0 ? (
