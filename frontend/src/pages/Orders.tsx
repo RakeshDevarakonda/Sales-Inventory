@@ -32,6 +32,7 @@ export default function Orders() {
   const [approvalNotes, setApprovalNotes] = useState('');
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [orderToCancel, setOrderToCancel] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [viewingOrderDetails, setViewingOrderDetails] = useState<any>(null);
@@ -62,15 +63,24 @@ export default function Orders() {
   };
 
   const handleCancel = (orderId: number) => {
+    setCancelError(null);
     setOrderToCancel(orderId);
   };
 
   const confirmCancelOrder = async () => {
     if (!orderToCancel) return;
     setCancelling(true);
-    await dispatch(cancelOrder(orderToCancel));
+    setCancelError(null);
+    const res = await dispatch(cancelOrder(orderToCancel));
     setCancelling(false);
-    setOrderToCancel(null);
+
+    if (res.success) {
+      setOrderToCancel(null);
+      // Refresh list to sync order status and state
+      dispatch(fetchOrders(statusFilter || null, currentPage, rowsPerPage));
+    } else {
+      setCancelError(res.error || 'Failed to cancel order.');
+    }
   };
 
   const filteredOrders = orders.filter((o) => {
@@ -101,6 +111,21 @@ export default function Orders() {
           <span>Create Sales Order</span>
         </Link>
       </div>
+
+      {cancelError && (
+        <div className="p-4 bg-rose-50 text-rose-800 rounded-lg border border-rose-200 text-xs flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{cancelError}</span>
+          </div>
+          <button
+            onClick={() => setCancelError(null)}
+            className="text-xs font-semibold hover:underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-rose-50 text-rose-800 rounded-lg border border-rose-200 text-xs flex items-center gap-2">
