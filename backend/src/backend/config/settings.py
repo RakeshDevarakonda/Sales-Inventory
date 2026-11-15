@@ -29,6 +29,12 @@ MAIL_USERNAME = os.getenv("MAIL_USERNAME")
 MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
 MAIL_FROM = os.getenv("MAIL_FROM")
 
-# CORS Origins
+# CORS Origins: Automatically normalizes origins by stripping whitespace and trailing slashes
 raw_cors = os.getenv("CORS_ORIGINS")
-CORS_ORIGINS = [origin.strip() for origin in raw_cors.split(",") if origin.strip()] if raw_cors else []
+CORS_ORIGINS = []
+if raw_cors:
+    for origin in raw_cors.split(","):
+        cleaned = origin.strip().rstrip("/")
+        if cleaned:
+            CORS_ORIGINS.append(cleaned)
+            CORS_ORIGINS.append(f"{cleaned}/")  # Allow both with and without trailing slash
