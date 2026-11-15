@@ -1,7 +1,12 @@
 from fastapi import HTTPException, Request, Response, status
-from backend.config.settings import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
+from backend.config.settings import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS, ENVIRONMENT
 from backend.schemas.auth import UserRegister, UserLogin, RefreshTokenRequest, ChangePasswordRequest
 from backend.services.user_service import UserService
+
+# In production (cross-origin between vercel.app and render.com), cookies require SameSite=None and Secure=True
+IS_PROD = ENVIRONMENT.lower() in ("production", "prod")
+COOKIE_SAMESITE = "none" if IS_PROD else "lax"
+COOKIE_SECURE = True if IS_PROD else False
 
 
 class AuthHandler:
@@ -19,8 +24,8 @@ class AuthHandler:
             key="access_token",
             value=result["access_token"],
             httponly=True,
-            samesite="lax",
-            secure=False,
+            samesite=COOKIE_SAMESITE,
+            secure=COOKIE_SECURE,
             max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
 
@@ -29,8 +34,8 @@ class AuthHandler:
             key="refresh_token",
             value=result["refresh_token"],
             httponly=True,
-            samesite="lax",
-            secure=False,
+            samesite=COOKIE_SAMESITE,
+            secure=COOKIE_SECURE,
             max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
         )
 
@@ -58,8 +63,8 @@ class AuthHandler:
             key="access_token",
             value=result["access_token"],
             httponly=True,
-            samesite="lax",
-            secure=False,
+            samesite=COOKIE_SAMESITE,
+            secure=COOKIE_SECURE,
             max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
 
@@ -68,8 +73,8 @@ class AuthHandler:
             key="refresh_token",
             value=result["refresh_token"],
             httponly=True,
-            samesite="lax",
-            secure=False,
+            samesite=COOKIE_SAMESITE,
+            secure=COOKIE_SECURE,
             max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
         )
 
@@ -80,8 +85,8 @@ class AuthHandler:
     def change_password(self, current_user: dict, data: ChangePasswordRequest, response: Response):
         result = self.service.change_password(current_user["id"], data)
         # Clear cookies since sessions are revoked
-        response.delete_cookie(key="access_token", httponly=True, samesite="lax")
-        response.delete_cookie(key="refresh_token", httponly=True, samesite="lax")
+        response.delete_cookie(key="access_token", httponly=True, samesite=COOKIE_SAMESITE, secure=COOKIE_SECURE)
+        response.delete_cookie(key="refresh_token", httponly=True, samesite=COOKIE_SAMESITE, secure=COOKIE_SECURE)
         return result
 
     def get_me(self, current_user: dict):
@@ -90,7 +95,7 @@ class AuthHandler:
     def logout(self, response: Response, current_user: dict):
         self.service.logout(current_user.get("session_id"))
 
-        response.delete_cookie(key="access_token", httponly=True, samesite="lax")
-        response.delete_cookie(key="refresh_token", httponly=True, samesite="lax")
+        response.delete_cookie(key="access_token", httponly=True, samesite=COOKIE_SAMESITE, secure=COOKIE_SECURE)
+        response.delete_cookie(key="refresh_token", httponly=True, samesite=COOKIE_SAMESITE, secure=COOKIE_SECURE)
 
         return {"message": "Successfully logged out"}

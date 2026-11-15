@@ -19,6 +19,9 @@ APPROVAL_THRESHOLD_AMOUNT = Decimal(os.getenv("APPROVAL_THRESHOLD_AMOUNT", "1000
 # Frontend Application URL
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
+# Production / Environment
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
 # Email Configuration
 MAIL_SERVER = os.getenv("MAIL_SERVER")
 MAIL_PORT = int(os.getenv("MAIL_PORT")) if os.getenv("MAIL_PORT") else None
