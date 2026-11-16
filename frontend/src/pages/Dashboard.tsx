@@ -85,40 +85,50 @@ export default function Dashboard() {
         {/* Total Revenue */}
         <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Total Revenue</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {user?.role === 'MANAGER' ? 'Total Revenue (Org)' : 'My Sales Revenue'}
+            </span>
             <DollarSign className="w-4 h-4 text-slate-400" />
           </div>
           <div className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
             ₹{totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">Confirmed & approved orders</p>
+          <p className="text-[11px] text-slate-500 mt-1">
+            {user?.role === 'MANAGER' ? 'Confirmed & approved orders across all reps' : 'Your confirmed & approved orders'}
+          </p>
         </div>
 
         {/* Total Orders */}
         <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Order Volume</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {user?.role === 'MANAGER' ? 'Total Order Volume' : 'My Orders'}
+            </span>
             <ShoppingCart className="w-4 h-4 text-slate-400" />
           </div>
           <div className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
             {totalOrders}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            {confirmedCount + approvedCount} fulfilled orders
+            {user?.role === 'MANAGER'
+              ? `${confirmedCount + approvedCount} fulfilled orders across org`
+              : `${confirmedCount + approvedCount} of your orders fulfilled`}
           </p>
         </div>
 
         {/* Pending Approvals */}
         <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Pending Review</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {user?.role === 'MANAGER' ? 'Pending Review' : 'My Pending Orders'}
+            </span>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
             {pendingCount}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            {user?.role === 'MANAGER' ? 'Manager review required (> ₹1,000)' : 'Awaiting approval'}
+            {user?.role === 'MANAGER' ? 'Manager review required (> ₹1,000)' : 'Your orders awaiting manager approval'}
           </p>
         </div>
 

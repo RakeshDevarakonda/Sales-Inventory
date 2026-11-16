@@ -5,30 +5,55 @@ class DashboardRepository:
     def __init__(self, conn):
         self.conn = conn
 
-    def get_stats(self):
+    def get_stats(self, user_id: int = None):
         with self.conn.cursor() as cursor:
-            # 1. Total revenue from completed/confirmed/approved orders
-            cursor.execute(
-                """
-                SELECT COALESCE(SUM(total_amount), 0.00) AS total_revenue
-                FROM orders
-                WHERE status IN ('CONFIRMED', 'APPROVED')
-                """
-            )
+            # 1. Total revenue from completed/confirmed/approved orders (scoped by user_id if sales rep)
+            if user_id:
+                cursor.execute(
+                    """
+                    SELECT COALESCE(SUM(total_amount), 0.00) AS total_revenue
+                    FROM orders
+                    WHERE status IN ('CONFIRMED', 'APPROVED') AND created_by_id = %s
+                    """,
+                    (user_id,)
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT COALESCE(SUM(total_amount), 0.00) AS total_revenue
+                    FROM orders
+                    WHERE status IN ('CONFIRMED', 'APPROVED')
+                    """
+                )
             total_revenue = cursor.fetchone()["total_revenue"]
 
-            # 2. Order counts breakdown
-            cursor.execute(
-                """
-                SELECT
-                    COUNT(1) AS total_orders,
-                    SUM(CASE WHEN status = 'PENDING_APPROVAL' THEN 1 ELSE 0 END) AS pending_approvals,
-                    SUM(CASE WHEN status = 'CONFIRMED' THEN 1 ELSE 0 END) AS confirmed_orders,
-                    SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) AS approved_orders,
-                    SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected_orders
-                FROM orders
-                """
-            )
+            # 2. Order counts breakdown (scoped by user_id if sales rep)
+            if user_id:
+                cursor.execute(
+                    """
+                    SELECT
+                        COUNT(1) AS total_orders,
+                        SUM(CASE WHEN status = 'PENDING_APPROVAL' THEN 1 ELSE 0 END) AS pending_approvals,
+                        SUM(CASE WHEN status = 'CONFIRMED' THEN 1 ELSE 0 END) AS confirmed_orders,
+                        SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) AS approved_orders,
+                        SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected_orders
+                    FROM orders
+                    WHERE created_by_id = %s
+                    """,
+                    (user_id,)
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT
+                        COUNT(1) AS total_orders,
+                        SUM(CASE WHEN status = 'PENDING_APPROVAL' THEN 1 ELSE 0 END) AS pending_approvals,
+                        SUM(CASE WHEN status = 'CONFIRMED' THEN 1 ELSE 0 END) AS confirmed_orders,
+                        SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) AS approved_orders,
+                        SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected_orders
+                    FROM orders
+                    """
+                )
             order_counts = cursor.fetchone()
 
             # 3. Product & stock counts
@@ -47,20 +72,37 @@ class DashboardRepository:
             cursor.execute("SELECT COUNT(1) AS total_customers FROM customers")
             total_customers = cursor.fetchone()["total_customers"]
 
-            # 5. Recent 5 orders
-            cursor.execute(
-                """
-                SELECT o.id, o.order_number, o.customer_id, c.name AS customer_name,
-                       o.created_by_id, u.username AS created_by_username,
-                       o.total_amount, o.status, o.reviewed_by_id, o.reviewed_at,
-                       o.approval_notes, o.created_at, o.updated_at
-                FROM orders o
-                JOIN customers c ON o.customer_id = c.id
-                JOIN users u ON o.created_by_id = u.id
-                ORDER BY o.id DESC
-                LIMIT 5
-                """
-            )
+            # 5. Recent 5 orders (scoped by user_id if sales rep)
+            if user_id:
+                cursor.execute(
+                    """
+                    SELECT o.id, o.order_number, o.customer_id, c.name AS customer_name,
+                           o.created_by_id, u.username AS created_by_username,
+                           o.total_amount, o.status, o.reviewed_by_id, o.reviewed_at,
+                           o.approval_notes, o.created_at, o.updated_at
+                    FROM orders o
+                    JOIN customers c ON o.customer_id = c.id
+                    JOIN users u ON o.created_by_id = u.id
+                    WHERE o.created_by_id = %s
+                    ORDER BY o.id DESC
+                    LIMIT 5
+                    """,
+                    (user_id,)
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT o.id, o.order_number, o.customer_id, c.name AS customer_name,
+                           o.created_by_id, u.username AS created_by_username,
+                           o.total_amount, o.status, o.reviewed_by_id, o.reviewed_at,
+                           o.approval_notes, o.created_at, o.updated_at
+                    FROM orders o
+                    JOIN customers c ON o.customer_id = c.id
+                    JOIN users u ON o.created_by_id = u.id
+                    ORDER BY o.id DESC
+                    LIMIT 5
+                    """
+                )
             recent_orders = cursor.fetchall()
 
             return {

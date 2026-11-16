@@ -10,6 +10,6 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard & Analytics"])
 @router.get("/summary", response_model=DashboardStatsOut)
 def get_dashboard_stats(
     conn=Depends(get_db),
-    _user=Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
-    return DashboardHandler(conn).get_stats()
+    return DashboardHandler(conn).get_stats(current_user)
