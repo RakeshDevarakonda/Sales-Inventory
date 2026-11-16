@@ -109,7 +109,7 @@ export const fetchProducts = (
 
 // Create product (Manager only)
 export const createProduct = (
-  productData: { name: string; sku?: string; price: number; stock_quantity: number; description?: string }
+  productData: { name: string; price: number; stock_quantity: number; description?: string }
 ) => async (dispatch: AppDispatch) => {
   try {
     const response = await api.post('/products', productData);

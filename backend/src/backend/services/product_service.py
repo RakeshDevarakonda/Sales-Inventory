@@ -40,23 +40,15 @@ class ProductService:
         return product
 
     def create(self, data: ProductCreate):
-        # Auto-generate unique SKU on the server side if omitted or empty
-        sku = data.sku.strip() if data.sku and data.sku.strip() else None
+        # Auto-generate unique SKU strictly on the server side
+        sku = None
+        for _ in range(10):
+            candidate = generate_sku(data.name)
+            if not self.repo.find_by_sku(candidate):
+                sku = candidate
+                break
         if not sku:
-            # Generate until unique
-            for _ in range(10):
-                candidate = generate_sku(data.name)
-                if not self.repo.find_by_sku(candidate):
-                    sku = candidate
-                    break
-            if not sku:
-                sku = f"PROD-{uuid.uuid4().hex[:8].upper()}"
-        else:
-            if self.repo.find_by_sku(sku):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Product with SKU '{sku}' already exists"
-                )
+            sku = f"PROD-{uuid.uuid4().hex[:8].upper()}"
 
         try:
             product_id = self.repo.create(

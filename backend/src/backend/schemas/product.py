@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 
 class ProductCreate(BaseModel):
-    sku: Optional[str] = Field(None, min_length=2, max_length=50)
     name: str = Field(..., min_length=1, max_length=150)
     description: Optional[str] = None
     price: Decimal = Field(..., ge=0)
