@@ -98,6 +98,7 @@ export interface ConfirmDialogProps {
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'info' | 'primary';
   loading?: boolean;
+  error?: string | null;
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -110,6 +111,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   cancelText = 'Cancel',
   variant = 'danger',
   loading = false,
+  error = null,
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -181,6 +183,12 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 {title}
               </h3>
               <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{message}</p>
+              {error && (
+                <div className="mt-3 p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span className="leading-snug">{error}</span>
+                </div>
+              )}
             </div>
           </div>
 

@@ -31,6 +31,7 @@ export default function Customers() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [customerToDelete, setCustomerToDelete] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Form fields
   const [name, setName] = useState('');
@@ -120,18 +121,23 @@ export default function Customers() {
   };
 
   const handleDeleteCustomer = (c: any) => {
+    setDeleteError(null);
     setCustomerToDelete(c);
   };
 
   const confirmDeleteCustomer = async () => {
     if (!customerToDelete) return;
     setDeleting(true);
+    setDeleteError(null);
     const res = await dispatch(deleteCustomer(customerToDelete.id));
     setDeleting(false);
     if (res.success) {
       setCustomerToDelete(null);
+      setDeleteError(null);
     } else {
-      setActionError(res.error || 'Failed to delete customer');
+      const errorMsg = res.error || 'Failed to delete customer';
+      setDeleteError(errorMsg);
+      setActionError(errorMsg);
     }
   };
 
@@ -184,6 +190,21 @@ export default function Customers() {
           </button>
         </div>
       </div>
+
+      {actionError && (
+        <div className="p-4 bg-rose-50 text-rose-800 rounded-lg border border-rose-200 text-xs flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span className="font-medium">{actionError}</span>
+          </div>
+          <button
+            onClick={() => setActionError(null)}
+            className="text-rose-500 hover:text-rose-700 text-xs font-semibold px-2 py-0.5 rounded cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-rose-50 text-rose-800 rounded-lg border border-rose-200 text-xs flex items-center gap-2">
@@ -478,13 +499,17 @@ export default function Customers() {
       {/* Delete Customer Confirmation Dialog */}
       <ConfirmDialog
         isOpen={Boolean(customerToDelete)}
-        onClose={() => setCustomerToDelete(null)}
+        onClose={() => {
+          setCustomerToDelete(null);
+          setDeleteError(null);
+        }}
         onConfirm={confirmDeleteCustomer}
         title="Delete Customer Profile"
         message={`Are you sure you want to delete "${customerToDelete?.name}"? All associated history will be impacted. This action cannot be reversed.`}
         confirmText="Delete Customer"
         variant="danger"
         loading={deleting}
+        error={deleteError}
       />
     </div>
   );

@@ -55,6 +55,7 @@ export default function Products() {
   // Status toggle confirmation dialog
   const [productToToggle, setProductToToggle] = useState<any>(null);
   const [toggling, setToggling] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   useEffect(() => {
     dispatch(fetchProducts(false, currentPage, rowsPerPage));
@@ -116,15 +117,24 @@ export default function Products() {
   };
 
   const handleToggleStatus = (product: any) => {
+    setToggleError(null);
     setProductToToggle(product);
   };
 
   const confirmToggleStatus = async () => {
     if (!productToToggle) return;
     setToggling(true);
-    await dispatch(toggleProductStatus(productToToggle.id, !productToToggle.is_active));
+    setToggleError(null);
+    const res = await dispatch(toggleProductStatus(productToToggle.id, !productToToggle.is_active));
     setToggling(false);
-    setProductToToggle(null);
+    if (res.success) {
+      setProductToToggle(null);
+      setToggleError(null);
+    } else {
+      const errorMsg = res.error || 'Failed to toggle product status';
+      setToggleError(errorMsg);
+      setActionError(errorMsg);
+    }
   };
 
   const handleAdjustStock = async (e: React.FormEvent) => {
@@ -563,7 +573,10 @@ export default function Products() {
       {/* Product Status Toggle Confirmation Dialog */}
       <ConfirmDialog
         isOpen={Boolean(productToToggle)}
-        onClose={() => setProductToToggle(null)}
+        onClose={() => {
+          setProductToToggle(null);
+          setToggleError(null);
+        }}
         onConfirm={confirmToggleStatus}
         title={productToToggle?.is_active ? 'Deactivate Product' : 'Activate Product'}
         message={
@@ -574,6 +587,7 @@ export default function Products() {
         confirmText={productToToggle?.is_active ? 'Deactivate' : 'Activate'}
         variant={productToToggle?.is_active ? 'warning' : 'primary'}
         loading={toggling}
+        error={toggleError}
       />
     </div>
   );
