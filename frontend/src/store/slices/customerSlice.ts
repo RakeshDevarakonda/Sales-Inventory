@@ -20,7 +20,7 @@ const initialState: CustomerState = {
   page: 1,
   limit: 10,
   totalPages: 1,
-  loading: false,
+  loading: true,
   error: null,
 };
 
