@@ -1,6 +1,17 @@
+import re
+import uuid
 from fastapi import HTTPException, status
 from backend.repositories.product_repository import ProductRepository
 from backend.schemas.product import ProductCreate, ProductUpdate, ProductStatusUpdate
+
+
+def generate_sku(name: str) -> str:
+    """Generate a clean, standardized, unique SKU on the server side."""
+    # Take first 3-4 alphanumeric characters of the product name as prefix
+    cleaned = re.sub(r"[^A-Za-z0-9]", "", name).upper()
+    prefix = cleaned[:4] if len(cleaned) >= 3 else "PROD"
+    suffix = uuid.uuid4().hex[:6].upper()
+    return f"{prefix}-{suffix}"
 
 
 class ProductService:
@@ -29,14 +40,27 @@ class ProductService:
         return product
 
     def create(self, data: ProductCreate):
-        if self.repo.find_by_sku(data.sku):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Product with SKU '{data.sku}' already exists"
-            )
+        # Auto-generate unique SKU on the server side if omitted or empty
+        sku = data.sku.strip() if data.sku and data.sku.strip() else None
+        if not sku:
+            # Generate until unique
+            for _ in range(10):
+                candidate = generate_sku(data.name)
+                if not self.repo.find_by_sku(candidate):
+                    sku = candidate
+                    break
+            if not sku:
+                sku = f"PROD-{uuid.uuid4().hex[:8].upper()}"
+        else:
+            if self.repo.find_by_sku(sku):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Product with SKU '{sku}' already exists"
+                )
+
         try:
             product_id = self.repo.create(
-                sku=data.sku,
+                sku=sku,
                 name=data.name,
                 description=data.description,
                 price=data.price,
